@@ -14,6 +14,7 @@ builder.Services.AddControllers();
 var connectionString = builder.Configuration["ConnectionStrings:DefaultConnection"];
 builder.Services.AddDbContext<HealthLinkDbContext>(options =>
     options.UseNpgsql(connectionString, b => b.MigrationsAssembly("HealthLink.Data"))
+            .UseLazyLoadingProxies()
 );
 
 // Add Swagger for API documentation
