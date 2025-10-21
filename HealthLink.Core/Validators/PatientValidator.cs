@@ -35,6 +35,15 @@ namespace HealthLink.Core.Validators
         {
             if (string.IsNullOrWhiteSpace(bloodType))
                 throw new ArgumentException("Blood type cannot be empty.", nameof(bloodType));
+
+            // Valid blood types
+            string[] ValidBloodTypes =
+            {
+                "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"
+            };
+
+            if (!ValidBloodTypes.Contains(bloodType.ToUpper()))
+                throw new ArgumentException($"Invalid blood type. Valid values are: {string.Join(", ", ValidBloodTypes)}", nameof(bloodType));
         }
 
         private static void ValidateHeight(decimal height)

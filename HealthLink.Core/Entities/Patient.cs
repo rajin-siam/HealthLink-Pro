@@ -1,5 +1,5 @@
-﻿using HealthLink.Core.Validators;
-
+﻿
+using HealthLink.Core.Validators;
 namespace HealthLink.Core.Entities
 {
     /// Represents a patient in the healthcare system.
@@ -13,11 +13,10 @@ namespace HealthLink.Core.Entities
         public decimal Height { get; private set; } // in cm
         public decimal Weight { get; private set; }  // in kg
 
-
-
         public virtual ICollection<Allergy> Allergies { get; private set; }
         public virtual ICollection<MedicalRecord> MedicalRecords { get; private set; }
         public virtual ICollection<Appointment> Appointments { get; private set; }
+
 
 
         public Patient(Guid id, string name, string email, string bloodType, decimal height, decimal weight)
@@ -80,7 +79,11 @@ namespace HealthLink.Core.Entities
 
         private void ValidateConstructorParameters(string name, string email, string bloodType, decimal height, decimal weight)
         {
-            PatientValidator.ValidatePatientData(name, email, bloodType, height, weight);
+            // Use the existing validator for most parameters
+            PatientValidator.ValidatePatientData(name, email, bloodType ,height, weight);
+
         }
+
+        
     }
 }
