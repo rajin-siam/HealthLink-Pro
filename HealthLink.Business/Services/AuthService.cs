@@ -252,7 +252,7 @@ namespace HealthLink.Business.Services
 
                 // Validate refresh token
                 var refreshTokenEntity = await _context.RefreshTokens
-                    .FirstOrDefaultAsync(rt => rt.refreshToken == request.RefreshToken && rt.User.Id == userId);
+                    .FirstOrDefaultAsync(rt => rt.RefreshTokenValue == request.RefreshToken && rt.User.Id == userId);
 
                 if (refreshTokenEntity == null)
                 {

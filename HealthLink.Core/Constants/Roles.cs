@@ -10,7 +10,7 @@ namespace HealthLink.Core.Constants
 
         public static bool IsValidRole(string role)
         {
-            throw new NotImplementedException();
+            return GetAllRoles().Contains(role, StringComparer.OrdinalIgnoreCase);
         }
 
         public static IEnumerable<string> GetAllRoles()

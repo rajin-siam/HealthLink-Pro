@@ -1,5 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
-using HealthLink.Core.Entities;
+﻿using HealthLink.Core.Entities;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace HealthLink.Data.Context
 {
@@ -27,6 +28,23 @@ namespace HealthLink.Data.Context
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<User>(entity =>
+            {
+                entity.ToTable("Users");
+            });
+
+            modelBuilder.Entity<IdentityRole<Guid>>(entity =>
+            {
+                entity.ToTable("Roles");
+            });
+
+            modelBuilder.Entity<IdentityUserRole<Guid>>(entity =>
+            {
+                entity.ToTable("UserRoles");
+                entity.HasKey(r => new { r.UserId, r.RoleId });
+            });
+
 
             // Configure each entity and their relationships
             ConfigurePatient(modelBuilder);
@@ -397,29 +415,25 @@ namespace HealthLink.Data.Context
         {
             modelBuilder.Entity<RefreshToken>(entity =>
             {
-                // Primary Key
-                entity.HasKey(e => e.id);
-                // Properties Configuration
-                entity.Property(e => e.refreshToken)
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.RefreshTokenValue)
                     .IsRequired()
                     .HasMaxLength(500);
+
                 entity.Property(e => e.ExpiryDate)
                     .IsRequired();
 
-                //entity.Property(e => e.CreatedAt)
-                //    .IsRequired();
-                //      entity.Property(e => e.RevokedAt);
-                // Indexes for Performance
-                //entity.HasIndex(e => e.Token)
-                //    .IsUnique()
-                //    .HasDatabaseName("IX_RefreshTokens_Token");
-                //entity.HasIndex(e => e.ExpiresAt)
-                //    .HasDatabaseName("IX_RefreshTokens_ExpiresAt");
-                // Relationships can be added here if RefreshToken is linked to another entity
+                entity.Property(e => e.IpAddress)
+                    .HasMaxLength(50);
 
-                entity.HasOne<User>()
+                entity.HasIndex(e => e.RefreshTokenValue)
+                    .IsUnique()
+                    .HasDatabaseName("IX_RefreshTokens_Token");
+
+                entity.HasOne(e => e.User)
                     .WithMany()
-                    .HasForeignKey("UserId")
+                    .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
         }
