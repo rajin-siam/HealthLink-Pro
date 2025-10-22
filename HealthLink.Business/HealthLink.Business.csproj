@@ -16,6 +16,7 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\HealthLink.Core\HealthLink.Core.csproj" />
+		<ProjectReference Include="..\HealthLink.Data\HealthLink.Data.csproj" />
 	</ItemGroup>
 
 </Project>

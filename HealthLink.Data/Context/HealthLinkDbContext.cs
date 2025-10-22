@@ -17,6 +17,7 @@ namespace HealthLink.Data.Context
         public DbSet<MedicalRecord> MedicalRecords { get; set; }
         public DbSet<Prescription> Prescriptions { get; set; }
         public DbSet<Allergy> Allergies { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
 
         public HealthLinkDbContext(DbContextOptions<HealthLinkDbContext> options)
             : base(options)
@@ -35,6 +36,7 @@ namespace HealthLink.Data.Context
             ConfigureMedicalRecord(modelBuilder);
             ConfigurePrescription(modelBuilder);
             ConfigureAllergy(modelBuilder);
+            ConfigureRefreshToken(modelBuilder);
         }
 
         /// <summary>
@@ -388,6 +390,37 @@ namespace HealthLink.Data.Context
                     .HasDatabaseName("IX_Allergies_Name");
 
                 // Relationship with Patient is configured in Patient configuration
+            });
+        }
+
+        private void ConfigureRefreshToken(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<RefreshToken>(entity =>
+            {
+                // Primary Key
+                entity.HasKey(e => e.id);
+                // Properties Configuration
+                entity.Property(e => e.refreshToken)
+                    .IsRequired()
+                    .HasMaxLength(500);
+                entity.Property(e => e.ExpiryDate)
+                    .IsRequired();
+
+                //entity.Property(e => e.CreatedAt)
+                //    .IsRequired();
+                //      entity.Property(e => e.RevokedAt);
+                // Indexes for Performance
+                //entity.HasIndex(e => e.Token)
+                //    .IsUnique()
+                //    .HasDatabaseName("IX_RefreshTokens_Token");
+                //entity.HasIndex(e => e.ExpiresAt)
+                //    .HasDatabaseName("IX_RefreshTokens_ExpiresAt");
+                // Relationships can be added here if RefreshToken is linked to another entity
+
+                entity.HasOne<User>()
+                    .WithMany()
+                    .HasForeignKey("UserId")
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }
