@@ -1,12 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace HealthLink.Core.Models.Auth
 {
-    internal class RevokeTokenRequest
+    /// <summary>
+    /// Request model for revoking a refresh token (logout).
+    /// </summary>
+    public class RevokeTokenRequest
     {
+        [Required(ErrorMessage = "Refresh token is required")]
+        public string RefreshToken { get; set; }
     }
 }

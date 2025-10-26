@@ -3,7 +3,6 @@ using HealthLink.Core.Interfaces;
 using HealthLink.Core.Models;
 using HealthLink.Core.Models.Auth;
 using Microsoft.AspNetCore.Authorization;
-
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -115,24 +114,33 @@ namespace HealthLink.API.Controllers
             return Ok(result);
         }
 
-        ///// <summary>
-        ///// Revokes a refresh token.
-        ///// </summary>
-        //[HttpPost("revoke-token")]
-        //[Authorize]
-        //[ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
-        //public async Task<IActionResult> RevokeToken([FromBody] string token)
-        //{
-        //    var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
-        //    var result = await _authService.RevokeTokenAsync(token, ipAddress);
+        /// <summary>
+        /// Revokes a refresh token (logout functionality).
+        /// </summary>
+        [HttpPost("revoke-token")]
+        [Authorize]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ApiResponse<bool>), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> RevokeToken([FromBody] RevokeTokenRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ApiResponse<bool>.ErrorResponse(
+                    "Validation failed.",
+                    ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage).ToList()
+                ));
+            }
 
-        //    if (!result.Success)
-        //    {
-        //        return BadRequest(result);
-        //    }
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+            var result = await _authService.RevokeTokenAsync(request.RefreshToken, ipAddress);
 
-        //    return Ok(result);
-        //}
+            if (!result.Success)
+            {
+                return BadRequest(result);
+            }
+
+            return Ok(result);
+        }
 
         /// <summary>
         /// Initiates the password reset process.

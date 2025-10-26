@@ -1,16 +1,17 @@
 ﻿using HealthLink.Core.Entities;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace HealthLink.Data.Context
 {
     /// <summary>
     /// Database context for the HealthLink application.
-    /// Configures all entity relationships and database constraints.
+    /// Now properly inherits from IdentityDbContext to support ASP.NET Core Identity.
     /// </summary>
-    public class HealthLinkDbContext : DbContext
+    public class HealthLinkDbContext : IdentityDbContext<User, IdentityRole<Guid>, Guid>
     {
-        // DbSets represent tables in the database
+        // DbSets for domain entities
         public DbSet<Patient> Patients { get; set; }
         public DbSet<Doctor> Doctors { get; set; }
         public DbSet<Hospital> Hospitals { get; set; }
@@ -27,8 +28,10 @@ namespace HealthLink.Data.Context
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // IMPORTANT: Call base first to configure Identity tables
             base.OnModelCreating(modelBuilder);
 
+            // Configure Identity table names for better organization
             modelBuilder.Entity<User>(entity =>
             {
                 entity.ToTable("Users");
@@ -42,11 +45,30 @@ namespace HealthLink.Data.Context
             modelBuilder.Entity<IdentityUserRole<Guid>>(entity =>
             {
                 entity.ToTable("UserRoles");
-                entity.HasKey(r => new { r.UserId, r.RoleId });
             });
 
+            modelBuilder.Entity<IdentityUserClaim<Guid>>(entity =>
+            {
+                entity.ToTable("UserClaims");
+            });
 
-            // Configure each entity and their relationships
+            modelBuilder.Entity<IdentityUserLogin<Guid>>(entity =>
+            {
+                entity.ToTable("UserLogins");
+            });
+
+            modelBuilder.Entity<IdentityRoleClaim<Guid>>(entity =>
+            {
+                entity.ToTable("RoleClaims");
+            });
+
+            modelBuilder.Entity<IdentityUserToken<Guid>>(entity =>
+            {
+                entity.ToTable("UserTokens");
+            });
+
+            // Configure domain entities
+            ConfigureUser(modelBuilder);
             ConfigurePatient(modelBuilder);
             ConfigureDoctor(modelBuilder);
             ConfigureHospital(modelBuilder);
@@ -58,16 +80,76 @@ namespace HealthLink.Data.Context
         }
 
         /// <summary>
-        /// Configures the Patient entity and its relationships.
+        /// Configures the User entity relationships with domain entities.
+        /// This links authentication users to their domain roles (Patient, Doctor, Hospital).
         /// </summary>
+        private void ConfigureUser(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<User>(entity =>
+            {
+                // User properties
+                entity.Property(e => e.FullName)
+                    .IsRequired()
+                    .HasMaxLength(255);
+
+                entity.Property(e => e.CreatedDate)
+                    .IsRequired();
+
+                entity.Property(e => e.UpdatedDate)
+                    .IsRequired();
+
+                entity.Property(e => e.IsActive)
+                    .IsRequired()
+                    .HasDefaultValue(true);
+
+                // One User can be linked to One Patient (optional)
+                entity.HasOne(e => e.Patient)
+                    .WithMany()
+                    .HasForeignKey(e => e.PatientId)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired(false);
+
+                // One User can be linked to One Doctor (optional)
+                entity.HasOne(e => e.Doctor)
+                    .WithMany()
+                    .HasForeignKey(e => e.DoctorId)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired(false);
+
+                // One User can be linked to One Hospital (optional)
+                entity.HasOne(e => e.Hospital)
+                    .WithMany()
+                    .HasForeignKey(e => e.HospitalId)
+                    .OnDelete(DeleteBehavior.Restrict)
+                    .IsRequired(false);
+
+                // Indexes
+                entity.HasIndex(e => e.PatientId)
+                    .IsUnique()
+                    .HasFilter("[PatientId] IS NOT NULL")
+                    .HasDatabaseName("IX_Users_PatientId");
+
+                entity.HasIndex(e => e.DoctorId)
+                    .IsUnique()
+                    .HasFilter("[DoctorId] IS NOT NULL")
+                    .HasDatabaseName("IX_Users_DoctorId");
+
+                entity.HasIndex(e => e.HospitalId)
+                    .IsUnique()
+                    .HasFilter("[HospitalId] IS NOT NULL")
+                    .HasDatabaseName("IX_Users_HospitalId");
+
+                entity.HasIndex(e => e.IsActive)
+                    .HasDatabaseName("IX_Users_IsActive");
+            });
+        }
+
         private void ConfigurePatient(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Patient>(entity =>
             {
-                // Primary Key
                 entity.HasKey(e => e.Id);
 
-                // Properties Configuration
                 entity.Property(e => e.Name)
                     .IsRequired()
                     .HasMaxLength(255);
@@ -80,51 +162,41 @@ namespace HealthLink.Data.Context
                     .HasMaxLength(10);
 
                 entity.Property(e => e.Height)
-                    .HasPrecision(5, 2); // 5 total digits, 2 after decimal (e.g., 180.50)
+                    .HasPrecision(5, 2);
 
                 entity.Property(e => e.Weight)
                     .HasPrecision(5, 2);
 
-                // Indexes for Performance
                 entity.HasIndex(e => e.Email)
-                    .IsUnique() // Ensures no duplicate emails
+                    .IsUnique()
                     .HasDatabaseName("IX_Patients_Email");
 
                 entity.HasIndex(e => e.CreatedDate)
                     .HasDatabaseName("IX_Patients_CreatedDate");
 
-                // Relationships
-                // One Patient has many Allergies
                 entity.HasMany(e => e.Allergies)
                     .WithOne(a => a.Patient)
-                    .HasForeignKey("PatientId") // Shadow property - EF creates this automatically
-                    .OnDelete(DeleteBehavior.Cascade); // Delete allergies when patient is deleted
+                    .HasForeignKey("PatientId")
+                    .OnDelete(DeleteBehavior.Cascade);
 
-                // One Patient has many MedicalRecords
                 entity.HasMany(e => e.MedicalRecords)
                     .WithOne(m => m.Patient)
                     .HasForeignKey("PatientId")
-                    .OnDelete(DeleteBehavior.Restrict); // Don't delete records when patient is deleted
+                    .OnDelete(DeleteBehavior.Restrict);
 
-                // One Patient has many Appointments
                 entity.HasMany(e => e.Appointments)
                     .WithOne(a => a.Patient)
                     .HasForeignKey("PatientId")
-                    .OnDelete(DeleteBehavior.Restrict); // Don't delete appointments when patient is deleted
+                    .OnDelete(DeleteBehavior.Restrict);
             });
         }
 
-        /// <summary>
-        /// Configures the Doctor entity and its relationships.
-        /// </summary>
         private void ConfigureDoctor(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Doctor>(entity =>
             {
-                // Primary Key
                 entity.HasKey(e => e.Id);
 
-                // Properties Configuration
                 entity.Property(e => e.Name)
                     .IsRequired()
                     .HasMaxLength(255);
@@ -137,14 +209,12 @@ namespace HealthLink.Data.Context
                     .IsRequired()
                     .HasMaxLength(100);
 
-                // Enum stored as string for readability in database
                 entity.Property(e => e.Specialization)
                     .HasConversion<string>()
                     .IsRequired();
 
-                // Indexes for Performance
                 entity.HasIndex(e => e.LicenseNumber)
-                    .IsUnique() // Each doctor has unique license
+                    .IsUnique()
                     .HasDatabaseName("IX_Doctors_LicenseNumber");
 
                 entity.HasIndex(e => e.Email)
@@ -153,34 +223,28 @@ namespace HealthLink.Data.Context
                 entity.HasIndex(e => e.Specialization)
                     .HasDatabaseName("IX_Doctors_Specialization");
 
-                // Relationships
-                // Many Doctors belong to One Hospital
                 entity.HasOne(e => e.Hospital)
                     .WithMany(h => h.Doctors)
-                    .HasForeignKey("HospitalId") // Shadow property
-                    .OnDelete(DeleteBehavior.SetNull) // Set to null if hospital is deleted
-                    .IsRequired(false); // Hospital is optional (doctor may not have hospital yet)
+                    .HasForeignKey("HospitalId")
+                    .OnDelete(DeleteBehavior.SetNull)
+                    .IsRequired(false);
 
-                // One Doctor has many Appointments
                 entity.HasMany(e => e.Appointments)
                     .WithOne(a => a.Doctor)
                     .HasForeignKey("DoctorId")
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // One Doctor creates many MedicalRecords
                 entity.HasMany(e => e.CreatedMedicalRecords)
                     .WithOne(m => m.CreatedByDoctor)
                     .HasForeignKey("CreatedByDoctorId")
                     .OnDelete(DeleteBehavior.Restrict);
 
-                // One Doctor can modify many MedicalRecords
                 entity.HasMany(e => e.ModifiedMedicalRecords)
                     .WithOne(m => m.ModifiedByDoctor)
                     .HasForeignKey("ModifiedByDoctorId")
-                    .OnDelete(DeleteBehavior.SetNull) // Can be null
+                    .OnDelete(DeleteBehavior.SetNull)
                     .IsRequired(false);
 
-                // One Doctor prescribes many Prescriptions
                 entity.HasMany(e => e.Prescriptions)
                     .WithOne(p => p.PrescribedByDoctor)
                     .HasForeignKey("PrescribedByDoctorId")
@@ -188,17 +252,12 @@ namespace HealthLink.Data.Context
             });
         }
 
-        /// <summary>
-        /// Configures the Hospital entity and its relationships.
-        /// </summary>
         private void ConfigureHospital(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Hospital>(entity =>
             {
-                // Primary Key
                 entity.HasKey(e => e.Id);
 
-                // Properties Configuration
                 entity.Property(e => e.Name)
                     .IsRequired()
                     .HasMaxLength(255);
@@ -216,38 +275,28 @@ namespace HealthLink.Data.Context
                 entity.Property(e => e.PhoneNumber)
                     .HasMaxLength(20);
 
-                // Indexes for Performance
                 entity.HasIndex(e => e.Name)
-                    .IsUnique() // Each hospital has unique name
+                    .IsUnique()
                     .HasDatabaseName("IX_Hospitals_Name");
 
                 entity.HasIndex(e => e.RegistrationNumber)
                     .IsUnique()
                     .HasDatabaseName("IX_Hospitals_RegistrationNumber");
-
-                // Relationships are configured in Doctor configuration (One-to-Many)
-                // No need to configure here as it's already done from the "Many" side
             });
         }
 
-        /// <summary>
-        /// Configures the Appointment entity and its relationships.
-        /// </summary>
         private void ConfigureAppointment(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Appointment>(entity =>
             {
-                // Primary Key
                 entity.HasKey(e => e.Id);
 
-                // Properties Configuration
                 entity.Property(e => e.AppointmentDateTime)
                     .IsRequired();
 
                 entity.Property(e => e.DurationMinutes)
                     .HasDefaultValue(30);
 
-                // Enum stored as string
                 entity.Property(e => e.Status)
                     .HasConversion<string>()
                     .IsRequired();
@@ -258,33 +307,20 @@ namespace HealthLink.Data.Context
                 entity.Property(e => e.ReasonForVisit)
                     .HasMaxLength(500);
 
-                // Indexes for Performance
                 entity.HasIndex(e => e.AppointmentDateTime)
                     .HasDatabaseName("IX_Appointments_AppointmentDateTime");
 
                 entity.HasIndex(e => e.Status)
                     .HasDatabaseName("IX_Appointments_Status");
-
-                // Composite index for common queries (finding appointments for a patient)
-                entity.HasIndex(e => new { e.AppointmentDateTime })
-                    .HasDatabaseName("IX_Appointments_PatientDoctor");
-
-                // Relationships are configured in Patient and Doctor configurations
-                // The FK shadow properties PatientId and DoctorId are created automatically
             });
         }
 
-        /// <summary>
-        /// Configures the MedicalRecord entity and its relationships.
-        /// </summary>
         private void ConfigureMedicalRecord(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<MedicalRecord>(entity =>
             {
-                // Primary Key
                 entity.HasKey(e => e.Id);
 
-                // Properties Configuration
                 entity.Property(e => e.Diagnosis)
                     .IsRequired()
                     .HasMaxLength(1000);
@@ -305,36 +341,22 @@ namespace HealthLink.Data.Context
                 entity.Property(e => e.Notes)
                     .HasMaxLength(3000);
 
-                // Indexes for Performance
                 entity.HasIndex(e => e.CreatedDate)
                     .HasDatabaseName("IX_MedicalRecords_CreatedDate");
 
-                // Composite index for finding records by patient
-                entity.HasIndex(e => new { e.CreatedDate })
-                    .HasDatabaseName("IX_MedicalRecords_PatientCreatedDate");
-
-                // Relationships
-                // One MedicalRecord has many Prescriptions
                 entity.HasMany(e => e.Prescriptions)
                     .WithOne(p => p.MedicalRecord)
                     .HasForeignKey("MedicalRecordId")
-                    .OnDelete(DeleteBehavior.Cascade); // Delete prescriptions when record is deleted
-
-                // Relationships with Patient and Doctors are configured in their respective configurations
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
 
-        /// <summary>
-        /// Configures the Prescription entity and its relationships.
-        /// </summary>
         private void ConfigurePrescription(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Prescription>(entity =>
             {
-                // Primary Key
                 entity.HasKey(e => e.Id);
 
-                // Properties Configuration
                 entity.Property(e => e.MedicationName)
                     .IsRequired()
                     .HasMaxLength(255);
@@ -359,37 +381,24 @@ namespace HealthLink.Data.Context
                 entity.Property(e => e.IsActive)
                     .HasDefaultValue(true);
 
-                // Indexes for Performance
                 entity.HasIndex(e => e.IsActive)
                     .HasDatabaseName("IX_Prescriptions_IsActive");
 
                 entity.HasIndex(e => e.EndDate)
                     .HasDatabaseName("IX_Prescriptions_EndDate");
-
-                // Composite index for finding active prescriptions
-                entity.HasIndex(e => new { e.IsActive, e.EndDate })
-                    .HasDatabaseName("IX_Prescriptions_ActiveEndDate");
-
-                // Relationships are configured in MedicalRecord and Doctor configurations
             });
         }
 
-        /// <summary>
-        /// Configures the Allergy entity and its relationships.
-        /// </summary>
         private void ConfigureAllergy(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<Allergy>(entity =>
             {
-                // Primary Key
                 entity.HasKey(e => e.Id);
 
-                // Properties Configuration
                 entity.Property(e => e.Name)
                     .IsRequired()
                     .HasMaxLength(255);
 
-                // Enum stored as string
                 entity.Property(e => e.Severity)
                     .HasConversion<string>()
                     .IsRequired();
@@ -400,14 +409,11 @@ namespace HealthLink.Data.Context
                 entity.Property(e => e.IdentifiedDate)
                     .IsRequired();
 
-                // Indexes for Performance
                 entity.HasIndex(e => e.Severity)
                     .HasDatabaseName("IX_Allergies_Severity");
 
                 entity.HasIndex(e => e.Name)
                     .HasDatabaseName("IX_Allergies_Name");
-
-                // Relationship with Patient is configured in Patient configuration
             });
         }
 
@@ -427,10 +433,22 @@ namespace HealthLink.Data.Context
                 entity.Property(e => e.IpAddress)
                     .HasMaxLength(50);
 
+                entity.Property(e => e.IsActive)
+                    .HasDefaultValue(true);
+
+                entity.Property(e => e.CreatedAt)
+                    .IsRequired();
+
+                // Add index for token lookup
                 entity.HasIndex(e => e.RefreshTokenValue)
                     .IsUnique()
                     .HasDatabaseName("IX_RefreshTokens_Token");
 
+                // Add index for expiry queries
+                entity.HasIndex(e => new { e.IsActive, e.ExpiryDate })
+                    .HasDatabaseName("IX_RefreshTokens_Active_Expiry");
+
+                // Configure relationship with User
                 entity.HasOne(e => e.User)
                     .WithMany()
                     .HasForeignKey(e => e.UserId)

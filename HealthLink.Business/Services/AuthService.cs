@@ -5,7 +5,6 @@ using HealthLink.Core.Models;
 using HealthLink.Core.Models.Auth;
 using HealthLink.Data.Context;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -13,6 +12,7 @@ namespace HealthLink.Business.Services
 {
     /// <summary>
     /// Implementation of authentication and authorization operations.
+    /// Handles user registration, login, token management, and password operations.
     /// </summary>
     public class AuthService : IAuthService
     {
@@ -36,11 +36,15 @@ namespace HealthLink.Business.Services
             _context = context;
         }
 
+        /// <summary>
+        /// Registers a new user with the specified role.
+        /// Creates user account, assigns role, and generates authentication tokens.
+        /// </summary>
         public async Task<ApiResponse<AuthResponse>> RegisterAsync(Core.Models.Auth.RegisterRequest request)
         {
             try
             {
-                // Validate role
+                // Step 1: Validate that the role exists in our system
                 if (!Roles.IsValidRole(request.Role))
                 {
                     return ApiResponse<AuthResponse>.ErrorResponse(
@@ -49,9 +53,10 @@ namespace HealthLink.Business.Services
                     );
                 }
 
-                // Create user
+                // Step 2: Create a new User entity
                 var user = new User(request.UserName, request.Email, request.FullName);
 
+                // Step 3: Create the user in Identity with the password
                 var result = await _userManager.CreateAsync(user, request.Password);
 
                 if (!result.Succeeded)
@@ -62,12 +67,12 @@ namespace HealthLink.Business.Services
                     );
                 }
 
-                // Add role
+                // Step 4: Assign the specified role to the user
                 var roleResult = await _userManager.AddToRoleAsync(user, request.Role);
 
                 if (!roleResult.Succeeded)
                 {
-                    // Cleanup: delete user if role assignment fails
+                    // If role assignment fails, delete the user to maintain data consistency
                     await _userManager.DeleteAsync(user);
 
                     return ApiResponse<AuthResponse>.ErrorResponse(
@@ -76,12 +81,12 @@ namespace HealthLink.Business.Services
                     );
                 }
 
-                // Generate tokens
+                // Step 5: Generate JWT access token and refresh token
                 var roles = await _userManager.GetRolesAsync(user);
                 var accessToken = _jwtService.GenerateAccessToken(user, roles);
                 var refreshToken = _jwtService.GenerateRefreshToken();
 
-                // Store refresh token
+                // Step 6: Store refresh token in database
                 var refreshTokenEntity = new RefreshToken(
                     user.Id,
                     refreshToken,
@@ -91,6 +96,7 @@ namespace HealthLink.Business.Services
                 _context.RefreshTokens.Add(refreshTokenEntity);
                 await _context.SaveChangesAsync();
 
+                // Step 7: Build and return the authentication response
                 var authResponse = new AuthResponse
                 {
                     Token = accessToken,
@@ -127,11 +133,15 @@ namespace HealthLink.Business.Services
             }
         }
 
+        /// <summary>
+        /// Authenticates a user with username/email and password.
+        /// Returns JWT tokens on successful authentication.
+        /// </summary>
         public async Task<ApiResponse<AuthResponse>> LoginAsync(Core.Models.Auth.LoginRequest request, string ipAddress)
         {
             try
             {
-                // Find user by username or email
+                // Step 1: Find user by username or email
                 User user;
                 if (request.UserNameOrEmail.Contains("@"))
                 {
@@ -150,7 +160,7 @@ namespace HealthLink.Business.Services
                     );
                 }
 
-                // Check if user is active
+                // Step 2: Check if user account is active
                 if (!user.IsActive)
                 {
                     return ApiResponse<AuthResponse>.ErrorResponse(
@@ -159,7 +169,7 @@ namespace HealthLink.Business.Services
                     );
                 }
 
-                // Verify password
+                // Step 3: Verify password (lockoutOnFailure enables account lockout after failed attempts)
                 var signInResult = await _signInManager.CheckPasswordSignInAsync(
                     user,
                     request.Password,
@@ -182,16 +192,16 @@ namespace HealthLink.Business.Services
                     );
                 }
 
-                // Update last login
+                // Step 4: Update last login timestamp
                 user.RecordLogin();
                 await _userManager.UpdateAsync(user);
 
-                // Generate tokens
+                // Step 5: Generate authentication tokens
                 var roles = await _userManager.GetRolesAsync(user);
                 var accessToken = _jwtService.GenerateAccessToken(user, roles);
                 var refreshToken = _jwtService.GenerateRefreshToken();
 
-                // Store refresh token
+                // Step 6: Store refresh token
                 var refreshTokenEntity = new RefreshToken(
                     user.Id,
                     refreshToken,
@@ -201,6 +211,7 @@ namespace HealthLink.Business.Services
                 _context.RefreshTokens.Add(refreshTokenEntity);
                 await _context.SaveChangesAsync();
 
+                // Step 7: Build authentication response
                 var authResponse = new AuthResponse
                 {
                     Token = accessToken,
@@ -237,10 +248,15 @@ namespace HealthLink.Business.Services
             }
         }
 
+        /// <summary>
+        /// Generates new access token using a valid refresh token.
+        /// Old refresh token is invalidated and a new one is issued.
+        /// </summary>
         public async Task<ApiResponse<AuthResponse>> RefreshTokenAsync(RefreshTokenRequest request, string ipAddress)
         {
             try
             {
+                // Step 1: Extract user ID from the expired JWT token
                 var userId = _jwtService.GetUserIdFromToken(request.Token);
                 if (userId == null)
                 {
@@ -250,9 +266,11 @@ namespace HealthLink.Business.Services
                     );
                 }
 
-                // Validate refresh token
+                // Step 2: Find and validate the refresh token
                 var refreshTokenEntity = await _context.RefreshTokens
-                    .FirstOrDefaultAsync(rt => rt.RefreshTokenValue == request.RefreshToken && rt.User.Id == userId);
+                    .FirstOrDefaultAsync(rt =>
+                        rt.RefreshTokenValue == request.RefreshToken &&
+                        rt.UserId == userId);
 
                 if (refreshTokenEntity == null)
                 {
@@ -262,17 +280,20 @@ namespace HealthLink.Business.Services
                     );
                 }
 
-                if (!refreshTokenEntity.IsActive)
+                // Step 3: Check if token is still active and not expired
+                if (!refreshTokenEntity.IsActive || refreshTokenEntity.ExpiryDate < DateTime.UtcNow)
                 {
                     return ApiResponse<AuthResponse>.ErrorResponse(
-                        "Refresh token is not active.",
-                        new List<string> { "Token has been revoked or used." }
+                        "Refresh token is not active or expired.",
+                        new List<string> { "Token has been revoked, used, or expired." }
                     );
                 }
 
-                // Mark old refresh token as used
-               // refreshTokenEntity.MarkAsUsed();
+                // Step 4: Invalidate the old refresh token
+                refreshTokenEntity.MarkAsUsed();
+                _context.RefreshTokens.Update(refreshTokenEntity);
 
+                // Step 5: Get user and verify they're still active
                 var user = await _userManager.FindByIdAsync(userId.Value.ToString());
                 if (user == null || !user.IsActive)
                 {
@@ -282,12 +303,12 @@ namespace HealthLink.Business.Services
                     );
                 }
 
-                // Generate new tokens
+                // Step 6: Generate new tokens
                 var roles = await _userManager.GetRolesAsync(user);
                 var accessToken = _jwtService.GenerateAccessToken(user, roles);
                 var newRefreshToken = _jwtService.GenerateRefreshToken();
 
-                // Store new refresh token
+                // Step 7: Store new refresh token
                 var newRefreshTokenEntity = new RefreshToken(
                     user.Id,
                     newRefreshToken,
@@ -297,6 +318,7 @@ namespace HealthLink.Business.Services
                 _context.RefreshTokens.Add(newRefreshTokenEntity);
                 await _context.SaveChangesAsync();
 
+                // Step 8: Build authentication response
                 var authResponse = new AuthResponse
                 {
                     Token = accessToken,
@@ -332,47 +354,59 @@ namespace HealthLink.Business.Services
             }
         }
 
-        //public async Task<ApiResponse<bool>> RevokeTokenAsync(string token, string ipAddress)
-        //{
-        //    try
-        //    {
-        //        var refreshTokenEntity = await _context.RefreshTokens
-        //            .FirstOrDefaultAsync(rt => rt.refreshToken == token);
+        /// <summary>
+        /// Revokes a refresh token, preventing it from being used again.
+        /// Useful for logout functionality or security measures.
+        /// </summary>
+        public async Task<ApiResponse<bool>> RevokeTokenAsync(string token, string ipAddress)
+        {
+            try
+            {
+                // Step 1: Find the refresh token
+                var refreshTokenEntity = await _context.RefreshTokens
+                    .FirstOrDefaultAsync(rt => rt.RefreshTokenValue == token);
 
-        //        if (refreshTokenEntity == null)
-        //        {
-        //            return ApiResponse<bool>.ErrorResponse(
-        //                "Invalid token.",
-        //                new List<string> { "Token not found." }
-        //            );
-        //        }
+                if (refreshTokenEntity == null)
+                {
+                    return ApiResponse<bool>.ErrorResponse(
+                        "Invalid token.",
+                        new List<string> { "Token not found." }
+                    );
+                }
 
-        //        if (!refreshTokenEntity.IsActive)
-        //        {
-        //            return ApiResponse<bool>.ErrorResponse(
-        //                "Token is not active.",
-        //                new List<string> { "Token is already revoked or used." }
-        //            );
-        //        }
+                // Step 2: Check if already inactive
+                if (!refreshTokenEntity.IsActive)
+                {
+                    return ApiResponse<bool>.ErrorResponse(
+                        "Token is not active.",
+                        new List<string> { "Token is already revoked or used." }
+                    );
+                }
 
-        //        refreshTokenEntity.Revoke(ipAddress);
-        //        await _context.SaveChangesAsync();
+                // Step 3: Revoke the token
+                refreshTokenEntity.MarkAsUsed();
+                _context.RefreshTokens.Update(refreshTokenEntity);
+                await _context.SaveChangesAsync();
 
-        //        _logger.LogInformation("Token revoked for user {UserId} from {IpAddress}",
-        //            refreshTokenEntity.UserId, ipAddress);
+                _logger.LogInformation("Token revoked for user {UserId} from {IpAddress}",
+                    refreshTokenEntity.UserId, ipAddress);
 
-        //        return ApiResponse<bool>.SuccessResponse(true, "Token revoked successfully.");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "Error occurred during token revocation");
-        //        return ApiResponse<bool>.ErrorResponse(
-        //            "An error occurred during token revocation.",
-        //            new List<string> { ex.Message }
-        //        );
-        //    }
-        //}
+                return ApiResponse<bool>.SuccessResponse(true, "Token revoked successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occurred during token revocation");
+                return ApiResponse<bool>.ErrorResponse(
+                    "An error occurred during token revocation.",
+                    new List<string> { ex.Message }
+                );
+            }
+        }
 
+        /// <summary>
+        /// Initiates password reset process by generating a reset token.
+        /// In production, this token should be sent via email.
+        /// </summary>
         public async Task<ApiResponse<bool>> ForgotPasswordAsync(Core.Models.Auth.ForgotPasswordRequest request)
         {
             try
@@ -380,17 +414,21 @@ namespace HealthLink.Business.Services
                 var user = await _userManager.FindByEmailAsync(request.Email);
                 if (user == null)
                 {
-                    // Don't reveal that the user doesn't exist
+                    // Don't reveal that the user doesn't exist (security best practice)
                     return ApiResponse<bool>.SuccessResponse(
                         true,
                         "If the email exists, a password reset link has been sent."
                     );
                 }
 
+                // Generate password reset token
                 var token = await _userManager.GeneratePasswordResetTokenAsync(user);
 
                 // TODO: Send email with reset token
-                // For now, just log it
+                // In production, integrate an email service here
+                // Example: await _emailService.SendPasswordResetEmail(user.Email, token);
+
+                // For now, just log it (REMOVE THIS IN PRODUCTION!)
                 _logger.LogInformation("Password reset token for {Email}: {Token}", request.Email, token);
                 _logger.LogInformation("Password reset requested for user {UserName}", user.UserName);
 
@@ -409,6 +447,9 @@ namespace HealthLink.Business.Services
             }
         }
 
+        /// <summary>
+        /// Resets user password using the token from ForgotPassword.
+        /// </summary>
         public async Task<ApiResponse<bool>> ResetPasswordAsync(Core.Models.Auth.ResetPasswordRequest request)
         {
             try
@@ -422,6 +463,7 @@ namespace HealthLink.Business.Services
                     );
                 }
 
+                // Reset password using the token
                 var result = await _userManager.ResetPasswordAsync(
                     user,
                     request.Token,
@@ -450,6 +492,10 @@ namespace HealthLink.Business.Services
             }
         }
 
+        /// <summary>
+        /// Changes password for an authenticated user.
+        /// Requires the current password for verification.
+        /// </summary>
         public async Task<ApiResponse<bool>> ChangePasswordAsync(Guid userId, ChangePasswordRequest request)
         {
             try
@@ -463,6 +509,7 @@ namespace HealthLink.Business.Services
                     );
                 }
 
+                // Change password (requires current password)
                 var result = await _userManager.ChangePasswordAsync(
                     user,
                     request.CurrentPassword,
@@ -491,6 +538,9 @@ namespace HealthLink.Business.Services
             }
         }
 
+        /// <summary>
+        /// Retrieves information about the currently authenticated user.
+        /// </summary>
         public async Task<ApiResponse<UserInfo>> GetUserInfoAsync(Guid userId)
         {
             try
@@ -530,6 +580,9 @@ namespace HealthLink.Business.Services
             }
         }
 
+        /// <summary>
+        /// Confirms user email using the confirmation token.
+        /// </summary>
         public async Task<ApiResponse<bool>> ConfirmEmailAsync(Guid userId, string token)
         {
             try
