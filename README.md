@@ -1,690 +1,487 @@
-﻿# HealthLink System - Complete Documentation
+﻿# HealthLink - Healthcare Management System
+## Project Documentation
+
+---
 
 ## Table of Contents
-1. [System Overview](#system-overview)
-2. [Architecture](#architecture)
-3. [Domain Model](#domain-model)
-4. [Application Flow](#application-flow)
-5. [Business Logic](#business-logic)
-6. [Authentication & Authorization](#authentication--authorization)
-7. [API Endpoints](#api-endpoints)
-8. [Database Schema](#database-schema)
+1. [Project Overview](#project-overview)
+2. [System Architecture](#system-architecture)
+3. [Technology Stack](#technology-stack)
+4. [Getting Started](#getting-started)
+5. [Project Structure](#project-structure)
+6. [Configuration](#configuration)
+7. [Authentication & Security](#authentication--security)
+8. [API Documentation](#api-documentation)
+9. [Database Schema](#database-schema)
+10. [Testing](#testing)
+11. [Deployment](#deployment)
 
 ---
 
-## System Overview
+## Project Overview
 
-**HealthLink** is a comprehensive healthcare management system built with ASP.NET Core 8.0 that manages the relationships between patients, doctors, hospitals, appointments, medical records, and prescriptions.
+### About HealthLink
+
+**HealthLink** is a comprehensive healthcare management system built with ASP.NET Core 8.0 that enables efficient management of healthcare operations including patient records, doctor appointments, medical records, and prescription management.
 
 ### Key Features
-- User authentication and role-based authorization (JWT)
-- Patient health records management
-- Doctor-patient appointment scheduling
-- Medical record creation and tracking
-- Prescription management
-- Allergy tracking
-- Hospital administration
 
-### Technology Stack
-- **Framework**: ASP.NET Core 8.0
-- **ORM**: Entity Framework Core 8.0
-- **Database**: PostgreSQL (via Npgsql)
-- **Authentication**: ASP.NET Core Identity + JWT
-- **Testing**: xUnit, Moq, FluentAssertions
-- **Architecture**: Clean Architecture (Layered)
+- ✅ **User Management**: Role-based authentication and authorization (Patient, Doctor, Hospital Admin, System Admin)
+- ✅ **Patient Management**: Complete patient health records with allergies, demographics, and medical history
+- ✅ **Appointment System**: Scheduling, rescheduling, and status tracking of patient-doctor appointments
+- ✅ **Medical Records**: Comprehensive medical record creation with diagnosis, symptoms, and treatment plans
+- ✅ **Prescription Management**: Digital prescription creation and tracking with medication details
+- ✅ **Hospital Management**: Multi-hospital support with doctor assignments
+- ✅ **Security**: JWT-based authentication with refresh token support
+- ✅ **Audit Trail**: Automatic tracking of creation and modification timestamps
 
----
+### System Goals
 
-## Architecture
-
-The application follows **Clean Architecture** principles with clear separation of concerns:
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Presentation Layer                    │
-│                   (HealthLink.API)                       │
-│  - Controllers                                           │
-│  - Middleware                                            │
-│  - Service Registration                                  │
-└─────────────────┬───────────────────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────────────────┐
-│                   Business Layer                         │
-│                (HealthLink.Business)                     │
-│  - AuthService (Authentication logic)                    │
-│  - JwtService (Token generation/validation)              │
-│  - Business Logic Implementation                         │
-└─────────────────┬───────────────────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────────────────┐
-│                     Core Layer                           │
-│                  (HealthLink.Core)                       │
-│  - Entities (Domain Models)                              │
-│  - Interfaces                                            │
-│  - Enums, Constants                                      │
-│  - DTOs, Validators                                      │
-└─────────────────┬───────────────────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────────────────┐
-│                   Data Layer                             │
-│                 (HealthLink.Data)                        │
-│  - DbContext                                             │
-│  - Entity Configurations                                 │
-│  - Migrations                                            │
-└──────────────────────────────────────────────────────────┘
-```
-
-### Layer Responsibilities
-
-**1. HealthLink.API (Presentation)**
-- Exposes RESTful API endpoints
-- Handles HTTP requests/responses
-- Performs input validation
-- Manages authentication/authorization
-- Returns standardized API responses
-
-**2. HealthLink.Business (Business Logic)**
-- Implements business rules and workflows
-- Orchestrates operations between entities
-- Handles complex business scenarios
-- Manages transactions
-
-**3. HealthLink.Core (Domain)**
-- Contains domain entities with business rules
-- Defines interfaces and contracts
-- Houses validation logic
-- No dependencies on other layers
-
-**4. HealthLink.Data (Infrastructure)**
-- Manages database access via EF Core
-- Configures entity relationships
-- Handles migrations
-- Implements repository pattern (if needed)
+1. **Efficiency**: Streamline healthcare workflows and reduce administrative overhead
+2. **Security**: Protect sensitive patient data with robust authentication and authorization
+3. **Scalability**: Support multiple hospitals, doctors, and thousands of patients
+4. **Maintainability**: Clean architecture for easy updates and feature additions
+5. **Reliability**: Comprehensive testing and error handling
 
 ---
 
-## Domain Model
+## System Architecture
 
-### Core Entities
+### Architecture Pattern
 
-#### 1. **User** (Authentication Entity)
-- Extends `IdentityUser<Guid>`
-- Links to domain entities (Patient, Doctor, Hospital)
-- Manages authentication state
-- Tracks login activity
+HealthLink follows **Clean Architecture** principles with clear separation of concerns across four layers:
 
 ```
-User
-├── Id: Guid
-├── UserName: string
-├── Email: string
-├── FullName: string
-├── IsActive: bool
-├── LastLoginDate: DateTime?
-├── PatientId: Guid? ────┐
-├── DoctorId: Guid? ─────┤
-└── HospitalId: Guid? ───┤
+┌─────────────────────────────────────────────────────────────┐
+│                     Presentation Layer                       │
+│                    (HealthLink.API)                         │
+│  • REST API Controllers                                     │
+│  • Request/Response Models                                  │
+│  • Authentication Middleware                                │
+│  • Dependency Injection Configuration                       │
+└────────────────────────┬────────────────────────────────────┘
                          │
-        ┌────────────────┴────────────────┐
-        │                                  │
-    Patient                            Doctor
+┌────────────────────────▼────────────────────────────────────┐
+│                     Business Layer                           │
+│                  (HealthLink.Business)                      │
+│  • Service Implementations (AuthService, JwtService)        │
+│  • Business Logic Orchestration                             │
+│  • Transaction Management                                   │
+│  • Validation & Error Handling                              │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────────┐
+│                      Core Layer                              │
+│                   (HealthLink.Core)                         │
+│  • Domain Entities (Patient, Doctor, Appointment, etc.)     │
+│  • Business Rules & Validations                             │
+│  • Interfaces & Contracts                                   │
+│  • Enums, Constants, DTOs                                   │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────────┐
+│                    Infrastructure Layer                      │
+│                    (HealthLink.Data)                        │
+│  • Entity Framework DbContext                               │
+│  • Database Migrations                                      │
+│  • Entity Configurations                                    │
+│  • Repository Implementations (if needed)                   │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-#### 2. **Patient**
-- Core entity representing a patient
-- Owns allergies, medical records, appointments
-- Contains health metrics (height, weight, blood type)
+### Design Principles
 
-#### 3. **Doctor**
-- Represents medical professionals
-- Has specialization and years of experience
-- Creates medical records and prescriptions
-- Schedules appointments
-- Belongs to a hospital
-
-#### 4. **Hospital**
-- Healthcare facility
-- Employs multiple doctors
-- Contains contact and location information
-
-#### 5. **Appointment**
-- Connects patient with doctor
-- Has status tracking (Scheduled, Completed, Cancelled, NoShow)
-- Contains appointment details and notes
-
-#### 6. **MedicalRecord**
-- Patient's health record for a specific visit
-- Created by a doctor
-- Contains diagnosis, symptoms, treatment
-- Can be modified by another doctor
-- Contains multiple prescriptions
-
-#### 7. **Prescription**
-- Medication information
-- Belongs to a medical record
-- Prescribed by a doctor
-- Contains dosage, frequency, duration
-
-#### 8. **Allergy**
-- Patient's allergy information
-- Has severity levels (Mild, Moderate, Severe)
-- Tracks identified date and reactions
-
-#### 9. **RefreshToken**
-- Manages JWT refresh tokens
-- Tracks token validity and IP address
-- Supports token refresh flow
-
-### Entity Relationships
-
-```
-Hospital (1) ────── (N) Doctor
-                           │
-                           │ (N)
-                           │
-Patient (1) ────── (N) Appointment (N) ────── (1) Doctor
-    │                                               │
-    │ (1)                                          │ (N)
-    │                                               │
-    │                                          MedicalRecord
-    │                                               │
-    │ (N)                                          │ (1)
-    │                                               │
-Allergy                                       Prescription
-    │                                               │
-    └───────────────────────────────────────────────┘
-                        (Many-to-One)
-```
+1. **Dependency Inversion**: High-level modules don't depend on low-level modules
+2. **Single Responsibility**: Each class has one reason to change
+3. **Open/Closed**: Open for extension, closed for modification
+4. **Interface Segregation**: Clients don't depend on interfaces they don't use
+5. **DRY (Don't Repeat Yourself)**: Reusable components and shared logic
 
 ---
 
-## Application Flow
+## Technology Stack
 
-### 1. User Registration Flow
+### Core Technologies
 
-```
-┌─────────┐         ┌──────────────┐         ┌─────────────┐
-│ Client  │         │AuthController│         │ AuthService │
-└────┬────┘         └──────┬───────┘         └──────┬──────┘
-     │                     │                        │
-     │ POST /auth/register │                        │
-     ├────────────────────>│                        │
-     │                     │                        │
-     │                     │ RegisterAsync()        │
-     │                     ├───────────────────────>│
-     │                     │                        │
-     │                     │                   ┌────▼─────┐
-     │                     │                   │ Validate │
-     │                     │                   │   Role   │
-     │                     │                   └────┬─────┘
-     │                     │                        │
-     │                     │                   ┌────▼─────────┐
-     │                     │                   │ Create User  │
-     │                     │                   │ via Identity │
-     │                     │                   └────┬─────────┘
-     │                     │                        │
-     │                     │                   ┌────▼─────────┐
-     │                     │                   │  Assign Role │
-     │                     │                   └────┬─────────┘
-     │                     │                        │
-     │                     │                   ┌────▼─────────┐
-     │                     │                   │  Generate    │
-     │                     │                   │  JWT Tokens  │
-     │                     │                   └────┬─────────┘
-     │                     │                        │
-     │                     │   AuthResponse         │
-     │                     │<───────────────────────┤
-     │   200 OK + Tokens   │                        │
-     │<────────────────────┤                        │
-     │                     │                        │
-```
+| Technology | Version | Purpose |
+|------------|---------|---------|
+| .NET Core | 8.0 | Application framework |
+| C# | 12.0 | Programming language |
+| ASP.NET Core | 8.0 | Web API framework |
+| Entity Framework Core | 8.0 | ORM for database access |
+| PostgreSQL | Latest | Relational database |
+| ASP.NET Core Identity | 8.0 | User authentication |
+| JWT | 8.14.0 | Token-based authentication |
 
-**Steps:**
-1. Client sends registration request with username, email, password, role
-2. Controller validates model state
-3. AuthService validates role against allowed roles
-4. Creates user via ASP.NET Identity UserManager
-5. Assigns role to user
-6. Generates JWT access token and refresh token
-7. Stores refresh token in database
-8. Returns tokens and user info to client
+### Development Tools
 
-### 2. User Login Flow
+- **IDE**: Visual Studio 2022 / Visual Studio Code / Rider
+- **API Testing**: Swagger UI, Postman
+- **Database Management**: pgAdmin, DBeaver
+- **Version Control**: Git
+- **Testing**: xUnit, Moq, FluentAssertions
 
-```
-┌─────────┐         ┌──────────────┐         ┌─────────────┐
-│ Client  │         │AuthController│         │ AuthService │
-└────┬────┘         └──────┬───────┘         └──────┬──────┘
-     │                     │                        │
-     │ POST /auth/login    │                        │
-     ├────────────────────>│                        │
-     │                     │                        │
-     │                     │ LoginAsync()           │
-     │                     ├───────────────────────>│
-     │                     │                        │
-     │                     │                   ┌────▼──────────┐
-     │                     │                   │ Find User by  │
-     │                     │                   │ Email/Username│
-     │                     │                   └────┬──────────┘
-     │                     │                        │
-     │                     │                   ┌────▼──────────┐
-     │                     │                   │ Check if User │
-     │                     │                   │   is Active   │
-     │                     │                   └────┬──────────┘
-     │                     │                        │
-     │                     │                   ┌────▼──────────┐
-     │                     │                   │    Verify     │
-     │                     │                   │   Password    │
-     │                     │                   └────┬──────────┘
-     │                     │                        │
-     │                     │                   ┌────▼──────────┐
-     │                     │                   │ Update Last   │
-     │                     │                   │  Login Date   │
-     │                     │                   └────┬──────────┘
-     │                     │                        │
-     │                     │                   ┌────▼──────────┐
-     │                     │                   │  Generate     │
-     │                     │                   │  JWT Tokens   │
-     │                     │                   └────┬──────────┘
-     │                     │                        │
-     │                     │   AuthResponse         │
-     │                     │<───────────────────────┤
-     │   200 OK + Tokens   │                        │
-     │<────────────────────┤                        │
-     │                     │                        │
-```
+### NuGet Packages
 
-**Steps:**
-1. Client sends login credentials (username/email + password)
-2. AuthService finds user by username or email
-3. Checks if user account is active
-4. Verifies password using SignInManager
-5. Handles lockout if too many failed attempts
-6. Records login timestamp
-7. Generates new JWT tokens
-8. Stores refresh token in database
-9. Returns tokens and user info
+**HealthLink.API:**
+- `Swashbuckle.AspNetCore` (9.0.6) - Swagger/OpenAPI
+- `Serilog.AspNetCore` (9.0.0) - Logging
+- `Microsoft.EntityFrameworkCore.Design` (8.0.21)
 
-### 3. Token Refresh Flow
+**HealthLink.Business:**
+- `FluentValidation` (12.0.0) - Input validation
+- `Mapster` (7.4.0) - Object mapping
+- `Microsoft.AspNetCore.Authentication.JwtBearer` (8.0.21)
+- `Microsoft.AspNetCore.Identity.EntityFrameworkCore` (8.0.21)
 
-```
-┌─────────┐         ┌──────────────┐         ┌─────────────┐
-│ Client  │         │AuthController│         │ AuthService │
-└────┬────┘         └──────┬───────┘         └──────┬──────┘
-     │                     │                        │
-     │ POST /auth/         │                        │
-     │ refresh-token       │                        │
-     ├────────────────────>│                        │
-     │                     │                        │
-     │                     │ RefreshTokenAsync()    │
-     │                     ├───────────────────────>│
-     │                     │                        │
-     │                     │                   ┌────▼──────────┐
-     │                     │                   │ Extract UserId│
-     │                     │                   │  from Token   │
-     │                     │                   └────┬──────────┘
-     │                     │                        │
-     │                     │                   ┌────▼──────────┐
-     │                     │                   │   Validate    │
-     │                     │                   │ Refresh Token │
-     │                     │                   │  from DB      │
-     │                     │                   └────┬──────────┘
-     │                     │                        │
-     │                     │                   ┌────▼──────────┐
-     │                     │                   │ Check if User │
-     │                     │                   │   is Active   │
-     │                     │                   └────┬──────────┘
-     │                     │                        │
-     │                     │                   ┌────▼──────────┐
-     │                     │                   │  Generate New │
-     │                     │                   │  JWT Tokens   │
-     │                     │                   └────┬──────────┘
-     │                     │                        │
-     │                     │   New Tokens           │
-     │                     │<───────────────────────┤
-     │   200 OK + Tokens   │                        │
-     │<────────────────────┤                        │
-     │                     │                        │
-```
+**HealthLink.Data:**
+- `Npgsql.EntityFrameworkCore.PostgreSQL` (8.0.11)
+- `Microsoft.EntityFrameworkCore.Proxies` (8.0.21) - Lazy loading
+- `Microsoft.EntityFrameworkCore.Tools` (8.0.21) - Migrations
 
-### 4. Authenticated Request Flow
-
-```
-┌─────────┐    ┌──────────────┐    ┌─────────────┐    ┌─────────────┐
-│ Client  │    │   JWT        │    │  Controller │    │   Service   │
-│         │    │ Middleware   │    │             │    │             │
-└────┬────┘    └──────┬───────┘    └──────┬──────┘    └──────┬──────┘
-     │                │                   │                   │
-     │ Request with   │                   │                   │
-     │ Bearer Token   │                   │                   │
-     ├───────────────>│                   │                   │
-     │                │                   │                   │
-     │           ┌────▼────────┐          │                   │
-     │           │  Extract &  │          │                   │
-     │           │  Validate   │          │                   │
-     │           │    Token    │          │                   │
-     │           └────┬────────┘          │                   │
-     │                │                   │                   │
-     │                │ If Valid          │                   │
-     │                ├──────────────────>│                   │
-     │                │                   │                   │
-     │                │              ┌────▼────────┐          │
-     │                │              │   Extract   │          │
-     │                │              │ User Claims │          │
-     │                │              └────┬────────┘          │
-     │                │                   │                   │
-     │                │                   │ Business Logic    │
-     │                │                   ├──────────────────>│
-     │                │                   │                   │
-     │                │                   │    Response       │
-     │                │                   │<──────────────────┤
-     │                │     200 OK        │                   │
-     │                │<──────────────────┤                   │
-     │   Response     │                   │                   │
-     │<───────────────┤                   │                   │
-     │                │                   │                   │
-```
-
-### 5. Complete Appointment Booking Flow
-
-```
-┌─────────┐  ┌──────────┐  ┌────────┐  ┌────────────┐  ┌─────────┐
-│ Patient │  │   API    │  │ Doctor │  │ Appointment│  │ Database│
-└────┬────┘  └────┬─────┘  └───┬────┘  └─────┬──────┘  └────┬────┘
-     │            │            │              │              │
-     │  Search    │            │              │              │
-     │  Doctors   │            │              │              │
-     ├───────────>│            │              │              │
-     │            │ Query doctors by          │              │
-     │            │ specialization           │              │
-     │            ├──────────────────────────────────────────>
-     │            │            │              │              │
-     │            │       Doctor List         │              │
-     │            │<──────────────────────────────────────────┤
-     │  Display   │            │              │              │
-     │  Doctors   │            │              │              │
-     │<───────────┤            │              │              │
-     │            │            │              │              │
-     │  Book      │            │              │              │
-     │  Appointment           │              │              │
-     ├───────────>│            │              │              │
-     │            │            │   Create     │              │
-     │            │            │   Appointment│              │
-     │            │            │              ├─────────────>│
-     │            │            │              │   Save       │
-     │            │            │              │<─────────────┤
-     │            │       Confirmation        │              │
-     │            │<──────────────────────────┤              │
-     │ Confirmation                           │              │
-     │<───────────┤            │              │              │
-     │            │            │              │              │
-```
+**HealthLink.Tests:**
+- `xUnit` (2.9.3) - Test framework
+- `Moq` (4.20.72) - Mocking framework
+- `FluentAssertions` (8.7.1) - Assertion library
+- `Microsoft.EntityFrameworkCore.InMemory` (9.0.10) - In-memory database for testing
 
 ---
 
-## Business Logic
+## Getting Started
 
-### 1. Patient Management
+### Prerequisites
 
-**Creating a Patient:**
-```csharp
-// Validation performed in constructor
-var patient = new Patient(
-    id: Guid.NewGuid(),
-    name: "John Doe",
-    email: "john@example.com",
-    bloodType: "O+",  // Must be valid: A+, A-, B+, B-, AB+, AB-, O+, O-
-    height: 180,      // Must be 50-300 cm
-    weight: 75        // Must be 5-500 kg
-);
+1. **.NET 8.0 SDK** - [Download](https://dotnet.microsoft.com/download/dotnet/8.0)
+2. **PostgreSQL** - [Download](https://www.postgresql.org/download/)
+3. **IDE** (Visual Studio, VS Code, or Rider)
+4. **Git** (optional but recommended)
+
+### Installation Steps
+
+#### 1. Clone the Repository
+
+```bash
+git clone https://github.com/your-org/healthlink.git
+cd healthlink
 ```
 
-**Business Rules:**
-- Email must be unique and valid
-- Blood type must be one of: A+, A-, B+, B-, AB+, AB-, O+, O-
-- Height: 50-300 cm
-- Weight: 5-500 kg
-- Can have multiple allergies
-- Can have multiple medical records
-- Can have multiple appointments
+#### 2. Configure Database Connection
 
-**Key Operations:**
-- `UpdatePersonalInfo()` - Updates patient details
-- `AddAllergy()` - Adds allergy (no duplicates)
-- `RemoveAllergy()` - Removes specific allergy
+Create `appsettings.Development.json` in the `HealthLink.API` project (this file is gitignored):
 
-### 2. Doctor Management
-
-**Creating a Doctor:**
-```csharp
-var doctor = new Doctor(
-    id: Guid.NewGuid(),
-    name: "Dr. Smith",
-    email: "smith@hospital.com",
-    licenseNumber: "LIC123456",
-    specialization: Specialization.Cardiology,
-    yearsOfExperience: 10
-);
-```
-
-**Business Rules:**
-- License number must be unique
-- Email must be unique and valid
-- Years of experience cannot be negative
-- Must be assigned to a hospital (optional)
-- Can create and modify medical records
-- Can prescribe medications
-- Can have multiple appointments
-
-**Key Operations:**
-- `AssignToHospital()` - Links doctor to hospital
-- `UpdateExperience()` - Updates years of experience
-
-### 3. Appointment Management
-
-**Creating an Appointment:**
-```csharp
-var appointment = new Appointment(
-    id: Guid.NewGuid(),
-    appointmentDateTime: DateTime.UtcNow.AddDays(7),
-    reasonForVisit: "Annual checkup"
-);
-
-appointment.AssignPatient(patient);
-appointment.AssignDoctor(doctor);
-appointment.SetDuration(60); // minutes
-```
-
-**Business Rules:**
-- Appointment date must be in the future
-- Default duration is 30 minutes
-- Statuses: Scheduled → Completed/Cancelled/NoShow
-- Cannot reschedule completed or cancelled appointments
-- Cannot mark non-scheduled appointments as completed
-
-**State Transitions:**
-```
-          ┌─────────────┐
-          │  Scheduled  │ (Initial state)
-          └──────┬──────┘
-                 │
-      ┌──────────┼──────────┐
-      │          │          │
-      ▼          ▼          ▼
-┌──────────┐ ┌──────────┐ ┌──────────┐
-│Completed │ │Cancelled │ │  NoShow  │
-└──────────┘ └──────────┘ └──────────┘
-   (Final)      (Final)      (Final)
-```
-
-**Key Operations:**
-- `Reschedule()` - Changes appointment time
-- `MarkAsCompleted()` - Completes appointment with notes
-- `Cancel()` - Cancels appointment with reason
-- `MarkAsNoShow()` - Marks patient as no-show
-
-### 4. Medical Record Management
-
-**Creating a Medical Record:**
-```csharp
-var record = new MedicalRecord(
-    id: Guid.NewGuid(),
-    diagnosis: "Hypertension",
-    symptoms: "High blood pressure, headaches"
-);
-
-record.AssignPatient(patient);
-record.SetCreatingDoctor(doctor);
-record.SetTestsRecommended("Blood test, ECG");
-record.SetPhysicalExamination("BP: 140/90");
-```
-
-**Business Rules:**
-- Must have diagnosis and symptoms
-- Created by one doctor
-- Can be modified by another doctor (tracks both)
-- Contains multiple prescriptions
-- Cannot be deleted (audit trail)
-
-**Key Operations:**
-- `UpdateMedicalInfo()` - Updates record (tracks modifying doctor)
-- `AddPrescription()` - Adds prescription (no duplicates)
-- `SetTestsRecommended()` - Sets recommended tests
-- `UpdateNotes()` - Adds/updates notes
-
-### 5. Prescription Management
-
-**Creating a Prescription:**
-```csharp
-var prescription = new Prescription(
-    id: Guid.NewGuid(),
-    medicationName: "Lisinopril",
-    dosage: "10mg",
-    frequency: "Once daily",
-    durationDays: 30
-);
-
-prescription.AssignToMedicalRecord(record);
-prescription.SetPrescribingDoctor(doctor);
-prescription.SetInstructions("Take with food");
-prescription.SetWarnings("May cause dizziness");
-```
-
-**Business Rules:**
-- Must have medication name, dosage, frequency, duration
-- Start date defaults to now
-- End date calculated from duration
-- Can be active or inactive
-- Cannot reactivate expired prescriptions
-
-**Key Operations:**
-- `ExtendDuration()` - Adds more days
-- `Deactivate()` - Marks as inactive
-- `Reactivate()` - Reactivates if not expired
-
-### 6. Allergy Management
-
-**Creating an Allergy:**
-```csharp
-var allergy = new Allergy(
-    id: Guid.NewGuid(),
-    name: "Penicillin",
-    severity: AllergySeverity.Severe,
-    reactionDescription: "Anaphylaxis",
-    identifiedDate: DateTime.UtcNow.AddYears(-2)
-);
-
-patient.AddAllergy(allergy);
-```
-
-**Business Rules:**
-- Severity levels: Mild, Moderate, Severe
-- Identified date cannot be in the future
-- Each patient can have multiple unique allergies
-
----
-
-## Authentication & Authorization
-
-### JWT Token System
-
-**Access Token** (Short-lived, 60 minutes):
-- Contains user claims: Id, Username, Email, Roles
-- Used for API authentication
-- Stateless - validated via signature
-
-**Refresh Token** (Long-lived, 7 days):
-- Stored in database
-- Used to get new access token
-- Can be revoked
-- Tracks IP address
-
-**Token Claims:**
 ```json
 {
-  "nameid": "user-guid",
-  "name": "johndoe",
-  "email": "john@example.com",
-  "fullName": "John Doe",
-  "isActive": "True",
-  "role": "Patient",
-  "patientId": "patient-guid",  // if applicable
-  "doctorId": "doctor-guid",    // if applicable
-  "hospitalId": "hospital-guid" // if applicable
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=healthlink_db;Username=postgres;Password=your_password;"
+  },
+  "JwtSettings": {
+    "SecretKey": "YourVerySecureSecretKeyThatIsAtLeast32CharactersLong!",
+    "Issuer": "HealthLinkAPI",
+    "Audience": "HealthLinkClient",
+    "AccessTokenExpirationMinutes": 60,
+    "RefreshTokenExpirationDays": 7
+  }
 }
 ```
 
-### Role-Based Access Control
+#### 3. Create Database
 
-**Roles:**
-1. **Patient** - Can view own records, book appointments
-2. **Doctor** - Can create records, prescriptions, manage appointments
-3. **HospitalAdmin** - Can manage hospital, doctors
-4. **SystemAdmin** - Full system access
-
-**Authorization Policies:**
-```csharp
-// Defined in ServiceExtensions.cs
-RequireActiveUser         // User.IsActive = true
-RequirePatientRole        // Role: Patient
-RequireDoctorRole         // Role: Doctor
-RequireHospitalAdminRole  // Role: HospitalAdmin
-RequireSystemAdminRole    // Role: SystemAdmin
-RequireAdminRole          // Role: HospitalAdmin OR SystemAdmin
-RequireMedicalStaff       // Role: Doctor, HospitalAdmin, or SystemAdmin
+```bash
+# From solution root directory
+dotnet ef database update --project HealthLink.Data --startup-project HealthLink.API
 ```
 
-**Usage in Controllers:**
-```csharp
-[Authorize(Policy = Policies.RequireDoctorRole)]
-public async Task<IActionResult> CreateMedicalRecord()
+This will:
+- Create the `healthlink_db` database
+- Apply all migrations
+- Create all tables and relationships
+
+#### 4. Run the Application
+
+```bash
+cd HealthLink.API
+dotnet run
+```
+
+Or use Visual Studio's IIS Express/Kestrel profile.
+
+#### 5. Access the Application
+
+- **API Base URL**: `https://localhost:5001` or `http://localhost:5000`
+- **Swagger UI**: `https://localhost:5001/swagger`
+
+---
+
+## Project Structure
+
+### Solution Layout
+
+```
+HealthLink/
+├── HealthLink.API/                 # Presentation Layer
+│   ├── Controllers/
+│   │   └── AuthController.cs      # Authentication endpoints
+│   ├── Extensions/
+│   │   └── ServiceExtensions.cs   # DI configuration
+│   ├── Properties/
+│   │   └── launchSettings.json
+│   ├── Program.cs                 # Application entry point
+│   └── appsettings.json
+│
+├── HealthLink.Business/           # Business Logic Layer
+│   ├── Services/
+│   │   ├── AuthService.cs        # Authentication logic
+│   │   └── JwtService.cs         # JWT token management
+│   └── HealthLink.Business.csproj
+│
+├── HealthLink.Core/               # Domain Layer
+│   ├── Configuration/
+│   │   └── JwtSettings.cs        # JWT configuration model
+│   ├── Constants/
+│   │   ├── CustomClaims.cs       # JWT claim types
+│   │   ├── Policies.cs           # Authorization policies
+│   │   └── Roles.cs              # System roles
+│   ├── Entities/                 # Domain models
+│   │   ├── Allergy.cs
+│   │   ├── Appointment.cs
+│   │   ├── BaseEntity.cs
+│   │   ├── Doctor.cs
+│   │   ├── Hospital.cs
+│   │   ├── MedicalRecord.cs
+│   │   ├── Patient.cs
+│   │   ├── Prescription.cs
+│   │   ├── RefreshToken.cs
+│   │   └── User.cs
+│   ├── Enums/
+│   │   ├── AllergySeverity.cs
+│   │   ├── AppointmentStatus.cs
+│   │   └── Specialization.cs
+│   ├── Interfaces/
+│   │   ├── IAuthService.cs
+│   │   └── IJwtService.cs
+│   ├── Models/
+│   │   ├── ApiResponse.cs
+│   │   └── Auth/                 # Auth DTOs
+│   ├── Validators/
+│   │   └── PatientValidator.cs
+│   └── HealthLink.Core.csproj
+│
+├── HealthLink.Data/               # Infrastructure Layer
+│   ├── Context/
+│   │   └── HealthLinkDbContext.cs # EF Core DbContext
+│   ├── Migrations/               # EF Core migrations
+│   └── HealthLink.Data.csproj
+│
+├── HealthLink.Tests/              # Test Project
+│   ├── Entities/                 # Entity tests
+│   │   ├── PatientTests.cs
+│   │   ├── DoctorTests.cs
+│   │   ├── AppointmentTests.cs
+│   │   ├── MedicalRecordTests.cs
+│   │   └── UserTests.cs
+│   ├── Services/                 # Service tests
+│   │   ├── AuthServiceTests.cs
+│   │   └── JwtServiceTests.cs
+│   └── HealthLink.Tests.csproj
+│
+├── .gitignore
+├── HealthLink.sln
+└── README.md
+```
+
+### Key Files Explained
+
+**Program.cs**: Application startup and middleware configuration
+**ServiceExtensions.cs**: Dependency injection and service registration
+**HealthLinkDbContext.cs**: Database context with entity configurations
+**BaseEntity.cs**: Base class for all entities with audit properties
+**ApiResponse.cs**: Standardized API response wrapper
+
+---
+
+## Configuration
+
+### Application Settings
+
+#### appsettings.json (Committed)
+
+```json
 {
-    // Only doctors can access
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=healthlink_db;Username=postgres;Password=iamdragon;"
+  },
+  "JwtSettings": {
+    "SecretKey": "YourVerySecureSecretKeyThatIsAtLeast32CharactersLong!",
+    "Issuer": "HealthLinkAPI",
+    "Audience": "HealthLinkClient",
+    "AccessTokenExpirationMinutes": 60,
+    "RefreshTokenExpirationDays": 7
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.EntityFrameworkCore": "Information"
+    }
+  },
+  "AllowedHosts": "*"
 }
+```
+
+#### appsettings.Development.json (Gitignored)
+
+Override settings for local development:
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=healthlink_dev;Username=dev_user;Password=dev_pass;"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Debug",
+      "Microsoft.EntityFrameworkCore": "Information"
+    }
+  }
+}
+```
+
+### Environment Variables (Production)
+
+For production, use environment variables instead of configuration files:
+
+```bash
+export DATABASE_URL="Host=prod-db;Database=healthlink;Username=app;Password=***"
+export JWT_SECRET_KEY="ProductionSecretKey..."
+export ASPNETCORE_ENVIRONMENT="Production"
+```
+
+### Identity Configuration
+
+Located in `ServiceExtensions.cs`:
+
+```csharp
+// Password requirements
+options.Password.RequireDigit = true;
+options.Password.RequireLowercase = true;
+options.Password.RequireUppercase = true;
+options.Password.RequireNonAlphanumeric = true;
+options.Password.RequiredLength = 6;
+options.Password.RequiredUniqueChars = 1;
+
+// Account lockout
+options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+options.Lockout.MaxFailedAccessAttempts = 5;
+options.Lockout.AllowedForNewUsers = true;
+
+// User settings
+options.User.RequireUniqueEmail = true;
+options.SignIn.RequireConfirmedEmail = false; // Set to true for production
 ```
 
 ---
 
-## API Endpoints
+## Authentication & Security
+
+### JWT Authentication Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Authentication Flow                      │
+└─────────────────────────────────────────────────────────────┘
+
+1. User Login
+   ↓
+2. Validate Credentials
+   ↓
+3. Generate Access Token (60 min expiry)
+   ↓
+4. Generate Refresh Token (7 day expiry)
+   ↓
+5. Store Refresh Token in Database
+   ↓
+6. Return Both Tokens to Client
+
+──────────────────────────────────────────────────────────────
+
+Client makes API request:
+   Headers: { Authorization: "Bearer <access_token>" }
+   ↓
+Middleware validates token signature & expiry
+   ↓
+If valid: Extract user claims → Allow request
+If expired: Return 401 → Client uses refresh token
+```
+
+### Token Types
+
+**Access Token**:
+- Short-lived (60 minutes)
+- Contains user claims (ID, email, roles)
+- Stateless - validated via signature
+- Used for API authentication
+
+**Refresh Token**:
+- Long-lived (7 days)
+- Stored in database
+- Used to obtain new access tokens
+- Can be revoked for logout
+
+### Security Features
+
+1. **Password Security**:
+   - Hashed using PBKDF2 (ASP.NET Identity default)
+   - Minimum 6 characters with complexity requirements
+   - Never stored in plain text
+
+2. **Account Lockout**:
+   - 5 failed attempts → 15-minute lockout
+   - Prevents brute force attacks
+
+3. **Role-Based Authorization**:
+   - Patient, Doctor, HospitalAdmin, SystemAdmin
+   - Custom policies for fine-grained access control
+
+4. **Audit Trail**:
+   - All entities track CreatedDate and UpdatedDate
+   - Medical records track creator and modifier doctors
+
+### Authorization Policies
+
+Defined in `ServiceExtensions.cs`:
+
+```csharp
+// Require active account
+options.AddPolicy(Policies.RequireActiveUser, policy =>
+    policy.RequireClaim(CustomClaims.IsActive, "True"));
+
+// Role-based policies
+options.AddPolicy(Policies.RequirePatientRole, policy =>
+    policy.RequireRole(Roles.Patient));
+
+options.AddPolicy(Policies.RequireDoctorRole, policy =>
+    policy.RequireRole(Roles.Doctor));
+
+// Combined policies
+options.AddPolicy(Policies.RequireMedicalStaff, policy =>
+    policy.RequireRole(Roles.Doctor, Roles.HospitalAdmin, Roles.SystemAdmin));
+```
+
+---
+
+## API Documentation
+
+### Base URL
+
+- **Development**: `https://localhost:5001/api`
+- **Production**: `https://your-domain.com/api`
 
 ### Authentication Endpoints
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| POST | `/api/auth/register` | Register new user | No |
-| POST | `/api/auth/login` | Login user | No |
-| POST | `/api/auth/refresh-token` | Refresh JWT token | No |
-| POST | `/api/auth/forgot-password` | Request password reset | No |
-| POST | `/api/auth/reset-password` | Reset password with token | No |
-| POST | `/api/auth/change-password` | Change password | Yes |
-| GET | `/api/auth/me` | Get current user info | Yes |
-| GET | `/api/auth/confirm-email` | Confirm email address | No |
+#### POST /api/auth/register
+Register a new user account.
 
-### Request/Response Examples
-
-**Register Request:**
+**Request Body:**
 ```json
-POST /api/auth/register
 {
   "userName": "johndoe",
   "email": "john@example.com",
@@ -695,33 +492,32 @@ POST /api/auth/register
 }
 ```
 
-**Register Response:**
+**Response (200 OK):**
 ```json
 {
   "success": true,
   "message": "User registered successfully.",
   "data": {
-    "token": "eyJhbGciOiJIUzI1NiIs...",
-    "refreshToken": "base64-encoded-token",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refreshToken": "base64-encoded-refresh-token",
     "expiresAt": "2025-10-28T10:30:00Z",
     "user": {
-      "id": "guid",
+      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
       "userName": "johndoe",
       "email": "john@example.com",
       "fullName": "John Doe",
-      "roles": ["Patient"],
-      "patientId": "guid",
-      "doctorId": null,
-      "hospitalId": null
+      "roles": ["Patient"]
     }
   },
   "errors": []
 }
 ```
 
-**Login Request:**
+#### POST /api/auth/login
+Authenticate an existing user.
+
+**Request Body:**
 ```json
-POST /api/auth/login
 {
   "userNameOrEmail": "john@example.com",
   "password": "Password123!",
@@ -729,7 +525,68 @@ POST /api/auth/login
 }
 ```
 
-**Error Response:**
+**Response (200 OK):** Same as register response
+
+#### POST /api/auth/refresh-token
+Obtain a new access token using refresh token.
+
+**Request Body:**
+```json
+{
+  "token": "expired-access-token",
+  "refreshToken": "valid-refresh-token"
+}
+```
+
+**Response (200 OK):** Returns new access and refresh tokens
+
+#### POST /api/auth/revoke-token
+Revoke a refresh token (logout).
+
+**Authorization:** Required  
+**Request Body:**
+```json
+{
+  "refreshToken": "token-to-revoke"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Token revoked successfully.",
+  "data": true,
+  "errors": []
+}
+```
+
+#### GET /api/auth/me
+Get current authenticated user information.
+
+**Authorization:** Required  
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "User info retrieved successfully.",
+  "data": {
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "userName": "johndoe",
+    "email": "john@example.com",
+    "fullName": "John Doe",
+    "roles": ["Patient"],
+    "patientId": "guid",
+    "doctorId": null,
+    "hospitalId": null
+  },
+  "errors": []
+}
+```
+
+### Error Responses
+
+**400 Bad Request:**
 ```json
 {
   "success": false,
@@ -742,874 +599,634 @@ POST /api/auth/login
 }
 ```
 
+**401 Unauthorized:**
+```json
+{
+  "success": false,
+  "message": "Invalid username/email or password.",
+  "data": null,
+  "errors": ["Authentication failed."]
+}
+```
+
+### Using Swagger UI
+
+1. Navigate to `https://localhost:5001/swagger`
+2. Click "Authorize" button at top right
+3. Enter JWT token: `Bearer your-access-token-here`
+4. Test endpoints interactively
+
 ---
 
 ## Database Schema
 
-### Key Tables
+### Entity Relationship Diagram
 
-**Users** (ASP.NET Identity)
-- Id (PK, Guid)
-- UserName
-- Email
-- PasswordHash
-- FullName
-- IsActive
-- LastLoginDate
-- PatientId (FK, nullable)
-- DoctorId (FK, nullable)
-- HospitalId (FK, nullable)
+```
+┌─────────────┐
+│   Hospital  │
+│─────────────│
+│ Id (PK)     │
+│ Name        │
+│ RegNumber   │
+└──────┬──────┘
+       │ 1
+       │
+       │ N
+┌──────▼──────┐         ┌─────────────┐
+│   Doctor    │         │    User     │
+│─────────────│         │─────────────│
+│ Id (PK)     │◄────────│ Id (PK)     │
+│ Name        │   0..1  │ UserName    │
+│ LicenseNum  │         │ Email       │
+│ HospitalId  │         │ DoctorId    │
+└──────┬──────┘         │ PatientId   │
+       │                └──────┬──────┘
+       │ N                     │ 0..1
+       │                       │
+       │              ┌────────▼─────────┐
+       │              │     Patient      │
+       │              │──────────────────│
+       │              │ Id (PK)          │
+       │              │ Name             │
+       │              │ Email            │
+       │              │ BloodType        │
+       │              └────┬─────┬───────┘
+       │                   │ 1   │ 1
+       │ 1                 │ N   │ N
+       │              ┌────▼─────▼───────┐
+       │              │    Allergy       │
+       │              │  Appointment     │
+       ├──────────────┤  MedicalRecord   │
+       │              └──────────────────┘
+       │ 1
+       │ N
+┌──────▼──────────────┐
+│   MedicalRecord     │
+│─────────────────────│
+│ Id (PK)             │
+│ PatientId (FK)      │
+│ CreatedByDoctorId   │
+│ ModifiedByDoctorId  │
+│ Diagnosis           │
+│ Symptoms            │
+└──────┬──────────────┘
+       │ 1
+       │ N
+┌──────▼──────────────┐
+│   Prescription      │
+│─────────────────────│
+│ Id (PK)             │
+│ MedicalRecordId(FK) │
+│ PrescribedByDoc(FK) │
+│ MedicationName      │
+│ Dosage              │
+└─────────────────────┘
+```
+
+### Core Tables
+
+**Users** (Identity table)
+- Stores authentication data
+- Links to domain entities (Patient, Doctor, Hospital)
 
 **Patients**
-- Id (PK, Guid)
-- Name
-- Email (Unique)
-- BloodType
-- Height
-- Weight
-- CreatedDate
-- UpdatedDate
+- Personal information and health metrics
+- One-to-many with Allergies, Appointments, MedicalRecords
 
 **Doctors**
-- Id (PK, Guid)
-- Name
-- Email
-- LicenseNumber (Unique)
-- Specialization
-- YearsOfExperience
-- HospitalId (FK, nullable)
-- CreatedDate
-- UpdatedDate
+- Professional information and credentials
+- Belongs to a Hospital
+- Creates MedicalRecords and Prescriptions
 
 **Hospitals**
-- Id (PK, Guid)
-- Name (Unique)
-- RegistrationNumber (Unique)
-- Address
-- City
-- PhoneNumber
+- Healthcare facility information
+- Has many Doctors
 
 **Appointments**
-- Id (PK, Guid)
-- PatientId (FK)
-- DoctorId (FK)
-- AppointmentDateTime
-- DurationMinutes
-- Status
-- Notes
-- ReasonForVisit
+- Links Patient and Doctor
+- Tracks appointment status and details
 
 **MedicalRecords**
-- Id (PK, Guid)
-- PatientId (FK)
-- CreatedByDoctorId (FK)
-- ModifiedByDoctorId (FK, nullable)
-- Diagnosis
-- Symptoms
-- Treatment
-- TestsRecommended
-- PhysicalExamination
-- Notes
+- Patient's health record for a visit
+- Created by one Doctor, modified by another (optional)
+- Contains multiple Prescriptions
 
 **Prescriptions**
-- Id (PK, Guid)
-- MedicalRecordId (FK)
-- PrescribedByDoctorId (FK)
-- MedicationName
-- GenericName
-- Dosage
-- Frequency
-- DurationDays
-- StartDate
-- EndDate
-- Quantity
-- Instructions
-- Warnings
-- IsActive
+- Medication information
+- Belongs to MedicalRecord
+- Prescribed by Doctor
 
 **Allergies**
-- Id (PK, Guid)
-- PatientId (FK)
-- Name
-- Severity
-- ReactionDescription
-- IdentifiedDate
+- Patient's allergy information
+- Severity levels and reactions
 
 **RefreshTokens**
-- Id (PK, Guid)
-- UserId (FK)
-- RefreshTokenValue (Unique)
-- ExpiryDate
-- IpAddress
-- IsActive
-- CreatedAt
-
-### Relationship Cardinalities
-
-```
-User (1) ─────? (0..1) Patient
-User (1) ─────? (0..1) Doctor
-User (1) ─────? (0..1) Hospital
-
-Hospital (1) ────── (N) Doctor
-Patient (1) ────── (N) Allergy
-Patient (1) ────── (N) Appointment ────── (1) Doctor
-Patient (1) ────── (N) MedicalRecord ────── (1) Doctor (Creator)
-MedicalRecord (1) ────── (N) Prescription ────── (1) Doctor (Prescriber)
-```
+- JWT refresh tokens
+- Used for token refresh flow
 
 ---
 
-## Testing Strategy
+## Testing
 
-### Unit Tests (HealthLink.Tests)
+### Test Structure
 
-**Entity Tests:**
-- Validate business rules in constructors
-- Test state transitions (e.g., Appointment statuses)
-- Verify relationships and navigation properties
-- Test domain method behaviors
+```
+HealthLink.Tests/
+├── Entities/              # Domain entity tests
+│   ├── PatientTests.cs
+│   ├── DoctorTests.cs
+│   ├── AppointmentTests.cs
+│   ├── MedicalRecordTests.cs
+│   └── UserTests.cs
+└── Services/              # Service layer tests
+    ├── AuthServiceTests.cs
+    └── JwtServiceTests.cs
+```
 
-**Service Tests:**
-- Mock dependencies (UserManager, SignInManager, IJwtService)
-- Test authentication flows
-- Verify error handling
-- Test token generation and validation
+### Running Tests
 
-**Example Test:**
+```bash
+# Run all tests
+dotnet test
+
+# Run with coverage (if configured)
+dotnet test /p:CollectCoverage=true
+
+# Run specific test class
+dotnet test --filter "FullyQualifiedName~PatientTests"
+```
+
+### Test Examples
+
+**Entity Test:**
+```csharp
+[Fact]
+public void CreatePatient_WithValidData_ShouldSucceed()
+{
+    // Arrange
+    var patient = new Patient(
+        id: Guid.NewGuid(),
+        name: "John Doe",
+        email: "john@example.com",
+        bloodType: "O+",
+        height: 180,
+        weight: 75
+    );
+
+    // Act & Assert
+    Assert.Equal("John Doe", patient.Name);
+    Assert.NotEmpty(patient.Allergies);
+}
+```
+
+**Service Test with Mocking:**
 ```csharp
 [Fact]
 public async Task RegisterAsync_WithValidData_ShouldSucceed()
 {
     // Arrange
     var request = new RegisterRequest { ... };
-    _userManagerMock.Setup(...).ReturnsAsync(IdentityResult.Success);
-    
+    _userManagerMock.Setup(x => x.CreateAsync(...))
+        .ReturnsAsync(IdentityResult.Success);
+
     // Act
     var result = await _authService.RegisterAsync(request);
-    
+
     // Assert
     result.Success.Should().BeTrue();
     result.Data.Should().NotBeNull();
 }
 ```
 
+### Testing Best Practices
+
+1. **AAA Pattern**: Arrange, Act, Assert
+2. **One assertion per test** (when possible)
+3. **Descriptive test names**: `Method_Scenario_ExpectedResult`
+4. **Mock external dependencies**
+5. **Use in-memory database for integration tests**
+
 ---
 
-## Configuration
+## Deployment
 
-### appsettings.json
+### Prerequisites
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Database=healthlink_db;Username=postgres;Password=***"
-  },
-  "JwtSettings": {
-    "SecretKey": "YourVerySecureSecretKeyThatIsAtLeast32CharactersLong!",
-    "Issuer": "HealthLinkAPI",
-    "Audience": "HealthLinkClient",
-    "AccessTokenExpirationMinutes": 60,
-    "RefreshTokenExpirationDays": 7
-  }
+1. Production PostgreSQL database
+2. Server or cloud hosting (Azure, AWS, etc.)
+3. SSL certificate for HTTPS
+4. Environment variable management
+
+### Deployment Checklist
+
+#### 1. Update Configuration
+
+- [ ] Set `ASPNETCORE_ENVIRONMENT=Production`
+- [ ] Configure production connection string
+- [ ] Use secure JWT secret key (environment variable)
+- [ ] Enable HTTPS redirection
+- [ ] Disable Swagger UI
+- [ ] Configure CORS for specific origins
+- [ ] Set up proper logging (Serilog to cloud)
+
+#### 2. Database Migration
+
+```bash
+# Generate SQL script from migrations
+dotnet ef migrations script --project HealthLink.Data \
+  --startup-project HealthLink.API \
+  --output migrate.sql
+
+# Apply to production database
+psql -h prod-host -U app_user -d healthlink < migrate.sql
+```
+
+#### 3. Build and Publish
+
+```bash
+# Publish release build
+dotnet publish HealthLink.API/HealthLink.API.csproj \
+  -c Release \
+  -o ./publish
+
+# Copy published files to server
+scp -r ./publish/* user@server:/var/www/healthlink/
+```
+
+#### 4. Configure Systemd Service (Linux)
+
+Create `/etc/systemd/system/healthlink.service`:
+
+```ini
+[Unit]
+Description=HealthLink API
+After=network.target
+
+[Service]
+Type=notify
+User=www-data
+WorkingDirectory=/var/www/healthlink
+ExecStart=/usr/bin/dotnet /var/www/healthlink/HealthLink.API.dll
+Restart=always
+RestartSec=10
+SyslogIdentifier=healthlink
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=DATABASE_URL=<connection-string>
+Environment=JWT_SECRET_KEY=<secret-key>
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start:
+```bash
+sudo systemctl enable healthlink
+sudo systemctl start healthlink
+sudo systemctl status healthlink
+```
+
+#### 5. Configure Nginx (Reverse Proxy)
+
+```nginx
+server {
+    listen 80;
+    server_name api.healthlink.com;
+    return 301 https://$server_name$request_uri;
 }
-```
 
-### Identity Configuration
-
-```csharp
-// Password Requirements (ServiceExtensions.cs)
-options.Password.RequireDigit = true;
-options.Password.RequireLowercase = true;
-options.Password.RequireUppercase = true;
-options.Password.RequireNonAlphanumeric = true;
-options.Password.RequiredLength = 6;
-options.Password.RequiredUniqueChars = 1;
-
-// Lockout Settings
-options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
-options.Lockout.MaxFailedAccessAttempts = 5;
-options.Lockout.AllowedForNewUsers = true;
-
-// User Settings
-options.User.RequireUniqueEmail = true;
-options.SignIn.RequireConfirmedEmail = false;
-```
-
----
-
-## Detailed Business Workflows
-
-### Workflow 1: Complete Patient Journey
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    Patient Registration                       │
-│  1. User registers with Role = "Patient"                     │
-│  2. System creates User entity                               │
-│  3. System can later link to Patient entity (PatientId)      │
-└─────────────────────────┬────────────────────────────────────┘
-                          │
-                          ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    Search for Doctor                          │
-│  1. Patient browses doctors by specialization                │
-│  2. Views doctor experience, hospital affiliation            │
-│  3. Checks available appointment slots                       │
-└─────────────────────────┬────────────────────────────────────┘
-                          │
-                          ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    Book Appointment                           │
-│  1. Select doctor and time slot                              │
-│  2. Provide reason for visit                                 │
-│  3. System creates Appointment (Status: Scheduled)           │
-│  4. Links appointment to Patient and Doctor                  │
-└─────────────────────────┬────────────────────────────────────┘
-                          │
-                          ▼
-┌──────────────────────────────────────────────────────────────┐
-│                  Appointment Consultation                     │
-│  1. Doctor marks appointment as Completed                    │
-│  2. Doctor creates Medical Record                            │
-│     - Enters diagnosis                                       │
-│     - Documents symptoms                                     │
-│     - Records physical examination                           │
-│     - Recommends tests                                       │
-│  3. Doctor adds Prescriptions to Medical Record              │
-│     - Medication names, dosages                              │
-│     - Frequency and duration                                 │
-│     - Instructions and warnings                              │
-│  4. Doctor documents any Allergies discovered                │
-└─────────────────────────┬────────────────────────────────────┘
-                          │
-                          ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    Follow-up Care                             │
-│  1. Patient can view medical records                         │
-│  2. Patient can view active prescriptions                    │
-│  3. Patient can book follow-up appointment                   │
-│  4. Another doctor can modify the medical record             │
-│     (tracked via ModifiedByDoctor)                           │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### Workflow 2: Doctor's Daily Operations
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    Morning - View Schedule                    │
-│  1. Doctor logs in                                           │
-│  2. Views today's appointments                               │
-│  3. Reviews patient information for each appointment         │
-│     - Previous medical records                               │
-│     - Known allergies                                        │
-│     - Active prescriptions                                   │
-└─────────────────────────┬────────────────────────────────────┘
-                          │
-                          ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    Patient Consultation                       │
-│  1. Marks appointment as Started (if implemented)            │
-│  2. Conducts examination                                     │
-│  3. Creates new Medical Record                               │
-│     - Links to patient                                       │
-│     - Sets self as CreatedByDoctor                           │
-│  4. Adds diagnosis based on findings                         │
-└─────────────────────────┬────────────────────────────────────┘
-                          │
-                          ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    Prescribe Medications                      │
-│  1. Creates Prescription entities                            │
-│  2. Links to Medical Record                                  │
-│  3. Sets self as PrescribedByDoctor                          │
-│  4. Specifies:                                               │
-│     - Medication name and generic name                       │
-│     - Dosage and frequency                                   │
-│     - Duration and quantity                                  │
-│     - Special instructions                                   │
-│     - Warnings and contraindications                         │
-└─────────────────────────┬────────────────────────────────────┘
-                          │
-                          ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    Complete Appointment                       │
-│  1. Marks appointment as Completed                           │
-│  2. Adds consultation notes                                  │
-│  3. Records any recommendations                              │
-│  4. Schedules follow-up if needed                            │
-└─────────────────────────┬────────────────────────────────────┘
-                          │
-                          ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    End of Day                                 │
-│  1. Reviews all completed appointments                       │
-│  2. Checks for no-shows                                      │
-│  3. Prepares for next day                                    │
-└──────────────────────────────────────────────────────────────┘
-```
-
-### Workflow 3: Hospital Administration
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    Hospital Setup                             │
-│  1. System admin creates Hospital entity                     │
-│  2. Sets hospital details:                                   │
-│     - Name, registration number                              │
-│     - Address, city, phone                                   │
-└─────────────────────────┬────────────────────────────────────┘
-                          │
-                          ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    Hire Doctors                               │
-│  1. Hospital admin creates Doctor entity                     │
-│  2. Assigns doctor to hospital via AssignToHospital()        │
-│  3. Doctor entity links to hospital                          │
-│  4. Creates User account for doctor                          │
-│     - Role: Doctor                                           │
-│     - Links User.DoctorId to Doctor.Id                       │
-└─────────────────────────┬────────────────────────────────────┘
-                          │
-                          ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    Manage Operations                          │
-│  1. Monitor appointment statistics                           │
-│  2. View doctor schedules                                    │
-│  3. Track patient records                                    │
-│  4. Generate reports (if implemented)                        │
-└──────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Security Considerations
-
-### 1. Authentication Security
-
-**Password Storage:**
-- Passwords hashed using ASP.NET Identity (PBKDF2)
-- Never stored in plain text
-- Password complexity requirements enforced
-
-**JWT Token Security:**
-- Tokens signed with HMAC-SHA256
-- Secret key stored in configuration (should be in environment variables in production)
-- Short token expiration (60 minutes)
-- Refresh token rotation
-
-**Account Lockout:**
-- 5 failed login attempts → 15 minute lockout
-- Prevents brute force attacks
-
-### 2. Authorization
-
-**Role-Based Access:**
-- Each endpoint protected by role requirements
-- Claims-based authorization for fine-grained control
-- Active user check via custom policy
-
-**Example Protected Endpoint:**
-```csharp
-[Authorize(Policy = Policies.RequireDoctorRole)]
-[Authorize(Policy = Policies.RequireActiveUser)]
-public async Task<IActionResult> CreateMedicalRecord()
-{
-    // Only active doctors can access
-}
-```
-
-### 3. Data Protection
-
-**Sensitive Data:**
-- Medical records access restricted
-- Patient data only accessible by:
-  - The patient themselves
-  - Doctors with appointments
-  - Doctors who created records
-
-**Audit Trail:**
-- All entities have CreatedDate, UpdatedDate
-- Medical records track creator and modifier doctors
-- Login activity tracked via LastLoginDate
-
-### 4. Input Validation
-
-**Multiple Layers:**
-1. **Model Validation** - Data annotations
-2. **Business Logic Validation** - Entity constructors
-3. **Database Constraints** - Unique indexes, FK constraints
-
-**Example:**
-```csharp
-// Model validation
-[Required(ErrorMessage = "Email is required")]
-[EmailAddress(ErrorMessage = "Invalid email format")]
-public string Email { get; set; }
-
-// Business validation
-if (!IsValidEmail(email))
-    throw new ArgumentException("Email must be valid");
-
-// Database constraint
-entity.HasIndex(e => e.Email).IsUnique();
-```
-
----
-
-## Common Operations & Code Examples
-
-### 1. Creating a Complete Patient Record
-
-```csharp
-// Step 1: Create Patient entity
-var patient = new Patient(
-    id: Guid.NewGuid(),
-    name: "John Doe",
-    email: "john@example.com",
-    bloodType: "O+",
-    height: 180,
-    weight: 75
-);
-
-// Step 2: Add allergies
-var allergy = new Allergy(
-    id: Guid.NewGuid(),
-    name: "Penicillin",
-    severity: AllergySeverity.Severe,
-    reactionDescription: "Anaphylaxis"
-);
-patient.AddAllergy(allergy);
-
-// Step 3: Save to database
-await _context.Patients.AddAsync(patient);
-await _context.SaveChangesAsync();
-```
-
-### 2. Doctor Creating Medical Record
-
-```csharp
-// Step 1: Find patient and doctor
-var patient = await _context.Patients.FindAsync(patientId);
-var doctor = await _context.Doctors.FindAsync(doctorId);
-
-// Step 2: Create medical record
-var record = new MedicalRecord(
-    id: Guid.NewGuid(),
-    diagnosis: "Hypertension Stage 1",
-    symptoms: "High BP, occasional headaches"
-);
-
-record.AssignPatient(patient);
-record.SetCreatingDoctor(doctor);
-record.SetPhysicalExamination("BP: 140/90, HR: 78");
-record.SetTestsRecommended("Lipid panel, ECG");
-
-// Step 3: Add prescriptions
-var prescription = new Prescription(
-    id: Guid.NewGuid(),
-    medicationName: "Lisinopril",
-    dosage: "10mg",
-    frequency: "Once daily",
-    durationDays: 30
-);
-
-prescription.AssignToMedicalRecord(record);
-prescription.SetPrescribingDoctor(doctor);
-prescription.SetInstructions("Take in the morning with water");
-prescription.SetWarnings("May cause dizziness initially");
-
-record.AddPrescription(prescription);
-
-// Step 4: Save to database
-await _context.MedicalRecords.AddAsync(record);
-await _context.SaveChangesAsync();
-```
-
-### 3. Booking an Appointment
-
-```csharp
-// Step 1: Create appointment
-var appointment = new Appointment(
-    id: Guid.NewGuid(),
-    appointmentDateTime: DateTime.UtcNow.AddDays(7),
-    reasonForVisit: "Follow-up consultation"
-);
-
-// Step 2: Assign patient and doctor
-var patient = await _context.Patients.FindAsync(patientId);
-var doctor = await _context.Doctors.FindAsync(doctorId);
-
-appointment.AssignPatient(patient);
-appointment.AssignDoctor(doctor);
-appointment.SetDuration(45); // 45 minutes
-
-// Step 3: Save
-await _context.Appointments.AddAsync(appointment);
-await _context.SaveChangesAsync();
-```
-
-### 4. Completing an Appointment
-
-```csharp
-// Step 1: Find appointment
-var appointment = await _context.Appointments
-    .Include(a => a.Patient)
-    .Include(a => a.Doctor)
-    .FirstOrDefaultAsync(a => a.Id == appointmentId);
-
-if (appointment == null)
-    throw new NotFoundException("Appointment not found");
-
-// Step 2: Mark as completed
-appointment.MarkAsCompleted(
-    "Patient responded well to treatment. " +
-    "Blood pressure improved. Continue current medication."
-);
-
-// Step 3: Update database
-_context.Appointments.Update(appointment);
-await _context.SaveChangesAsync();
-```
-
----
-
-## Error Handling
-
-### Standardized API Response
-
-```csharp
-public class ApiResponse<T>
-{
-    public bool Success { get; set; }
-    public string Message { get; set; }
-    public T Data { get; set; }
-    public List<string> Errors { get; set; }
-}
-```
-
-### Success Response
-```json
-{
-  "success": true,
-  "message": "Operation completed successfully",
-  "data": { ... },
-  "errors": []
-}
-```
-
-### Error Response
-```json
-{
-  "success": false,
-  "message": "Operation failed",
-  "data": null,
-  "errors": [
-    "Email already exists",
-    "Password too weak"
-  ]
-}
-```
-
-### HTTP Status Codes
-
-| Status | When Used |
-|--------|-----------|
-| 200 OK | Successful GET, PUT, POST |
-| 400 Bad Request | Validation errors, invalid input |
-| 401 Unauthorized | Missing or invalid authentication |
-| 403 Forbidden | Authenticated but not authorized |
-| 404 Not Found | Resource doesn't exist |
-| 500 Internal Server Error | Unhandled exceptions |
-
----
-
-## Entity State Management
-
-### Entity Lifecycle
-
-```
-┌──────────────┐
-│   Detached   │ ← Entity created but not tracked
-└──────┬───────┘
-       │ Add to DbContext
-       ▼
-┌──────────────┐
-│    Added     │ ← New entity, will be inserted
-└──────┬───────┘
-       │ SaveChanges()
-       ▼
-┌──────────────┐
-│  Unchanged   │ ← Loaded from DB, no modifications
-└──────┬───────┘
-       │ Modify property
-       ▼
-┌──────────────┐
-│   Modified   │ ← Changes tracked, will be updated
-└──────┬───────┘
-       │ SaveChanges()
-       ▼
-┌──────────────┐
-│  Unchanged   │
-└──────────────┘
-```
-
-### Lazy Loading
-
-The application uses lazy loading proxies:
-```csharp
-// In Program.cs
-options.UseNpgsql(connectionString)
-       .UseLazyLoadingProxies();
-```
-
-**Benefits:**
-- Navigation properties loaded on access
-- Reduces initial query size
-
-**Considerations:**
-- Can cause N+1 query problems
-- Use `.Include()` for eager loading when needed
-
-**Example:**
-```csharp
-// Lazy loading (multiple queries)
-var patient = await _context.Patients.FindAsync(id);
-var allergies = patient.Allergies; // Separate query
-
-// Eager loading (single query)
-var patient = await _context.Patients
-    .Include(p => p.Allergies)
-    .Include(p => p.MedicalRecords)
-    .FirstOrDefaultAsync(p => p.Id == id);
-```
-
----
-
-## Development Workflow
-
-### 1. Adding a New Entity
-
-**Step 1: Create Entity Class**
-```csharp
-// In HealthLink.Core/Entities/
-public class Medication : BaseEntity
-{
-    public string Name { get; private set; }
-    public string Description { get; private set; }
-    
-    public Medication(Guid id, string name) : base(id)
-    {
-        // Validation
-        Name = name;
+server {
+    listen 443 ssl http2;
+    server_name api.healthlink.com;
+
+    ssl_certificate /etc/ssl/certs/healthlink.crt;
+    ssl_certificate_key /etc/ssl/private/healthlink.key;
+
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection keep-alive;
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
 
-**Step 2: Add DbSet to Context**
-```csharp
-// In HealthLinkDbContext
-public DbSet<Medication> Medications { get; set; }
+### Docker Deployment (Optional)
+
+**Dockerfile:**
+```dockerfile
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
+WORKDIR /app
+EXPOSE 80
+EXPOSE 443
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+COPY ["HealthLink.API/HealthLink.API.csproj", "HealthLink.API/"]
+COPY ["HealthLink.Business/HealthLink.Business.csproj", "HealthLink.Business/"]
+COPY ["HealthLink.Core/HealthLink.Core.csproj", "HealthLink.Core/"]
+COPY ["HealthLink.Data/HealthLink.Data.csproj", "HealthLink.Data/"]
+RUN dotnet restore "HealthLink.API/HealthLink.API.csproj"
+COPY . .
+WORKDIR "/src/HealthLink.API"
+RUN dotnet build "HealthLink.API.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "HealthLink.API.csproj" -c Release -o /app/publish
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "HealthLink.API.dll"]
 ```
 
-**Step 3: Configure Entity**
-```csharp
-// In OnModelCreating
-private void ConfigureMedication(ModelBuilder modelBuilder)
-{
-    modelBuilder.Entity<Medication>(entity =>
-    {
-        entity.HasKey(e => e.Id);
-        entity.Property(e => e.Name).IsRequired().HasMaxLength(255);
-        entity.HasIndex(e => e.Name).IsUnique();
-    });
-}
-```
+**docker-compose.yml:**
+```yaml
+version: '3.8'
+services:
+  api:
+    build: .
+    ports:
+      - "5000:80"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+    depends_on:
+      - db
+  
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: healthlink
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
 
-**Step 4: Create Migration**
-```bash
-dotnet ef migrations add AddMedication --project HealthLink.Data --startup-project HealthLink.API
-```
-
-**Step 5: Update Database**
-```bash
-dotnet ef database update --project HealthLink.Data --startup-project HealthLink.API
-```
-
-### 2. Adding a New API Endpoint
-
-**Step 1: Create Request/Response DTOs**
-```csharp
-// In HealthLink.Core/Models/
-public class CreateMedicationRequest
-{
-    [Required]
-    public string Name { get; set; }
-    public string Description { get; set; }
-}
-```
-
-**Step 2: Create Service Method**
-```csharp
-// In HealthLink.Business/Services/
-public async Task<ApiResponse<Medication>> CreateMedicationAsync(
-    CreateMedicationRequest request)
-{
-    var medication = new Medication(Guid.NewGuid(), request.Name);
-    await _context.Medications.AddAsync(medication);
-    await _context.SaveChangesAsync();
-    
-    return ApiResponse<Medication>.SuccessResponse(
-        medication, 
-        "Medication created"
-    );
-}
-```
-
-**Step 3: Create Controller**
-```csharp
-// In HealthLink.API/Controllers/
-[ApiController]
-[Route("api/[controller]")]
-public class MedicationsController : ControllerBase
-{
-    [HttpPost]
-    [Authorize(Policy = Policies.RequireDoctorRole)]
-    public async Task<IActionResult> Create(
-        [FromBody] CreateMedicationRequest request)
-    {
-        var result = await _service.CreateMedicationAsync(request);
-        return result.Success ? Ok(result) : BadRequest(result);
-    }
-}
-```
-
-**Step 4: Write Tests**
-```csharp
-// In HealthLink.Tests/
-[Fact]
-public async Task CreateMedication_WithValidData_ShouldSucceed()
-{
-    // Arrange
-    var request = new CreateMedicationRequest { Name = "Aspirin" };
-    
-    // Act
-    var result = await _service.CreateMedicationAsync(request);
-    
-    // Assert
-    result.Success.Should().BeTrue();
-}
+volumes:
+  pgdata:
 ```
 
 ---
 
-## Future Enhancements
+## Troubleshooting
 
-### Potential Features
+### Common Issues
 
-1. **Doctor Schedule Management**
-   - Time slot availability
-   - Working hours configuration
-   - Appointment conflicts prevention
+**Issue: Database connection fails**
+```
+Solution: Verify PostgreSQL is running and connection string is correct
+Check: Connection string, firewall rules, PostgreSQL service status
+```
 
-2. **Payment Processing**
-   - Consultation fees
-   - Payment history
-   - Insurance claims
+**Issue: Migrations fail**
+```
+Solution: Ensure HealthLink.Data is specified as project parameter
+Command: dotnet ef database update --project HealthLink.Data --startup-project HealthLink.API
+```
 
-3. **Notifications**
-   - Email/SMS for appointments
-   - Prescription reminders
-   - Test result notifications
+**Issue: JWT token validation fails**
+```
+Solution: Check JWT secret key matches in configuration and token generation
+Verify: Token signature, expiration time, issuer/audience claims
+```
 
-4. **Medical Tests**
-   - Test ordering and tracking
-   - Lab results integration
-   - Result interpretation
+**Issue: CORS errors in browser**
+```
+Solution: Configure CORS policy in Program.cs
+Check: AllowedOrigins, AllowedMethods, AllowedHeaders settings
+```
 
-5. **Telemedicine**
-   - Video consultations
-   - Chat messaging
-   - Digital prescriptions
+**Issue: Entity Framework lazy loading not working**
+```
+Solution: Ensure UseLazyLoadingProxies() is called and navigation properties are virtual
+Check: DbContext configuration, entity property declarations
+```
 
-6. **Analytics & Reporting**
-   - Patient health trends
-   - Doctor performance metrics
-   - Hospital statistics
+### Debugging Tips
 
-7. **Document Management**
-   - Medical report uploads
-   - Test result PDFs
-   - Prescription images
-
-8. **Advanced Search**
-   - Search doctors by availability
-   - Filter by insurance accepted
-   - Location-based search
-
----
-
-## Deployment Considerations
-
-### Environment Configuration
-
-**Development:**
-- Local PostgreSQL database
-- Debug logging enabled
-- Swagger UI enabled
-- CORS allows all origins
-
-**Production:**
-- Cloud database (Azure PostgreSQL, AWS RDS)
-- Structured logging (Serilog to cloud)
-- Swagger disabled
-- CORS restricted to specific domains
-- HTTPS enforced
-- Secrets in environment variables/Key Vault
-
-### Connection String Security
-
-**Don't commit:**
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=prod;Database=healthlink;User=admin;Password=secret123"
+1. **Enable detailed logging**:
+```csharp
+"Logging": {
+  "LogLevel": {
+    "Default": "Debug",
+    "Microsoft.EntityFrameworkCore": "Information"
   }
 }
 ```
 
-**Use environment variables:**
+2. **Check database queries**:
 ```csharp
-var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") 
-    ?? builder.Configuration["ConnectionStrings:DefaultConnection"];
+// Add to Program.cs for development
+if (app.Environment.IsDevelopment())
+{
+    builder.Services.AddDbContext<HealthLinkDbContext>(options =>
+        options.UseNpgsql(connectionString)
+               .LogTo(Console.WriteLine, LogLevel.Information));
+}
 ```
 
-### JWT Secret Management
-
-**Development:** appsettings.Development.json (gitignored)
-**Production:** Environment variables or Azure Key Vault
-
+3. **Test API endpoints with curl**:
 ```bash
-# Environment variable
-export JWT_SECRET_KEY="YourProductionSecretKey..."
+# Test registration
+curl -X POST https://localhost:5001/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"userName":"test","email":"test@test.com","password":"Test123!","confirmPassword":"Test123!","fullName":"Test User","role":"Patient"}'
 
-# In code
-jwtSettings.SecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") 
-    ?? jwtSettings.SecretKey;
+# Test authenticated endpoint
+curl -X GET https://localhost:5001/api/auth/me \
+  -H "Authorization: Bearer your-token-here"
 ```
 
 ---
 
-## Conclusion
+## Maintenance & Support
 
-HealthLink is a well-structured healthcare management system built on Clean Architecture principles. The application separates concerns effectively across layers, uses strong typing and domain-driven design, and implements secure authentication and authorization.
+### Regular Maintenance Tasks
 
-Key strengths:
-- **Domain-Rich Entities**: Business logic embedded in entities
-- **Comprehensive Testing**: Unit tests for entities and services
-- **Security-First**: JWT authentication, role-based authorization
-- **Maintainability**: Clear layer separation, dependency injection
-- **Scalability**: Stateless API design, token-based auth
+**Daily:**
+- Monitor application logs for errors
+- Check database connections and performance
+- Review authentication failures
 
-The system provides a solid foundation for healthcare management and can be extended with additional features like telemedicine, analytics, and advanced scheduling.
+**Weekly:**
+- Review security logs
+- Check disk space and database size
+- Update dependencies if needed
+
+**Monthly:**
+- Database backup and restoration test
+- Security audit and vulnerability scan
+- Performance optimization review
+
+### Backup Strategy
+
+**Database Backups:**
+```bash
+# Daily automated backup
+pg_dump -h localhost -U postgres healthlink_db > backup_$(date +%Y%m%d).sql
+
+# Restore from backup
+psql -h localhost -U postgres healthlink_db < backup_20251028.sql
+```
+
+**Application Files:**
+- Source code in version control (Git)
+- Configuration files backed up securely
+- SSL certificates stored safely
+
+---
+
+## Contributing Guidelines
+
+### Code Style
+
+- Follow C# naming conventions (PascalCase for public members)
+- Use meaningful variable and method names
+- Add XML documentation comments for public APIs
+- Keep methods focused and single-purpose
+- Maximum line length: 120 characters
+
+### Git Workflow
+
+1. Create feature branch from `develop`
+```bash
+git checkout -b feature/new-feature-name
+```
+
+2. Make changes and commit with descriptive messages
+```bash
+git commit -m "Add: Patient allergy management endpoint"
+```
+
+3. Write tests for new features
+4. Ensure all tests pass
+5. Create pull request to `develop`
+6. Code review and approval required
+7. Merge to `develop`, then to `main` for release
+
+### Commit Message Format
+
+```
+Type: Brief description
+
+Detailed description (optional)
+
+Type can be:
+- Add: New feature
+- Fix: Bug fix
+- Update: Modification to existing feature
+- Refactor: Code restructuring
+- Test: Adding or updating tests
+- Docs: Documentation changes
+```
+
+---
+
+## Support & Resources
+
+### Documentation
+- **API Reference**: `/swagger` endpoint in development
+- **Architecture Diagram**: See System Architecture section
+- **Entity Models**: `HealthLink.Core/Entities/`
+
+### External Resources
+- [ASP.NET Core Documentation](https://docs.microsoft.com/aspnet/core)
+- [Entity Framework Core](https://docs.microsoft.com/ef/core)
+- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
+- [JWT Introduction](https://jwt.io/introduction)
+
+### Contact
+- **Project Lead**: [Name/Email]
+- **Technical Support**: [Email]
+- **Bug Reports**: [GitHub Issues URL]
+
+---
+
+## Appendix
+
+### A. System Requirements
+
+**Minimum:**
+- CPU: 2 cores
+- RAM: 4GB
+- Storage: 20GB
+- OS: Windows Server 2019+ / Linux (Ubuntu 20.04+)
+
+**Recommended:**
+- CPU: 4+ cores
+- RAM: 8GB+
+- Storage: 50GB+ SSD
+- OS: Ubuntu 22.04 LTS or Windows Server 2022
+
+### B. Port Configuration
+
+| Port | Service | Purpose |
+|------|---------|---------|
+| 5000 | HTTP | Development API (insecure) |
+| 5001 | HTTPS | Development API (secure) |
+| 5432 | PostgreSQL | Database connection |
+| 80 | HTTP | Production (redirects to 443) |
+| 443 | HTTPS | Production API |
+
+### C. Environment Variables Reference
+
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `ASPNETCORE_ENVIRONMENT` | Yes | Application environment | `Production` |
+| `DATABASE_URL` | Yes | PostgreSQL connection string | `Host=...;Database=...` |
+| `JWT_SECRET_KEY` | Yes | JWT signing key | `32+ character string` |
+| `JWT_ISSUER` | No | Token issuer | `HealthLinkAPI` |
+| `JWT_AUDIENCE` | No | Token audience | `HealthLinkClient` |
+
+### D. Database Indexes
+
+Key indexes for performance:
+
+```sql
+-- Users
+CREATE INDEX IX_Users_Email ON Users(Email);
+CREATE INDEX IX_Users_IsActive ON Users(IsActive);
+
+-- Patients
+CREATE UNIQUE INDEX IX_Patients_Email ON Patients(Email);
+CREATE INDEX IX_Patients_CreatedDate ON Patients(CreatedDate);
+
+-- Doctors
+CREATE UNIQUE INDEX IX_Doctors_LicenseNumber ON Doctors(LicenseNumber);
+CREATE INDEX IX_Doctors_Specialization ON Doctors(Specialization);
+
+-- Appointments
+CREATE INDEX IX_Appointments_AppointmentDateTime ON Appointments(AppointmentDateTime);
+CREATE INDEX IX_Appointments_Status ON Appointments(Status);
+
+-- RefreshTokens
+CREATE UNIQUE INDEX IX_RefreshTokens_Token ON RefreshTokens(RefreshTokenValue);
+CREATE INDEX IX_RefreshTokens_Active_Expiry ON RefreshTokens(IsActive, ExpiryDate);
+```
+
+---
+
+## Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0.0 | 2025-01-15 | Initial release with core features |
+| 1.1.0 | TBD | Planned: Doctor scheduling, notifications |
+
+---
+
+## License
+
+[Specify your license here - MIT, Apache 2.0, proprietary, etc.]
+
+---
+
+**Document Version:** 1.0  
+**Last Updated:** October 28, 2025  
+**Maintained By:** HealthLink Development Team
