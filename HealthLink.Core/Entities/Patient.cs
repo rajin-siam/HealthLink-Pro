@@ -39,11 +39,6 @@ namespace HealthLink.Core.Entities
         public string? EmergencyContactName { get; private set; }
         public string? EmergencyContactPhone { get; private set; }
 
-        // ===========================
-        // Insurance
-        // ===========================
-        public string? InsuranceProvider { get; private set; }
-        public string? InsurancePolicyNumber { get; private set; }
 
         // ===========================
         // Computed Properties
@@ -108,8 +103,6 @@ namespace HealthLink.Core.Entities
             City = city;
             EmergencyContactName = emergencyContactName;
             EmergencyContactPhone = emergencyContactPhone;
-            InsuranceProvider = insuranceProvider;
-            InsurancePolicyNumber = insurancePolicyNumber;
 
             Allergies = new List<Allergy>();
             MedicalRecords = new List<MedicalRecord>();
@@ -142,13 +135,6 @@ namespace HealthLink.Core.Entities
         {
             EmergencyContactName = contactName;
             EmergencyContactPhone = contactPhone;
-            UpdatedDate = DateTime.UtcNow;
-        }
-
-        public void UpdateInsurance(string? provider, string? policyNumber)
-        {
-            InsuranceProvider = provider;
-            InsurancePolicyNumber = policyNumber;
             UpdatedDate = DateTime.UtcNow;
         }
 
